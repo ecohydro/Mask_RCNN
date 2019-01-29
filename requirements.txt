@@ -1,3 +1,4 @@
+### required for mrcnn and samples
 numpy
 scipy
 Pillow
@@ -10,3 +11,10 @@ opencv-python
 h5py
 imgaug
 IPython[all]
+
+### required for CropMaskRCNN notebooks and crop_mask module
+gdal
+rasterio
+shapely
+fiona
+geopandas
