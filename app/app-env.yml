@@ -8,7 +8,7 @@ dependencies:
   - pyqt
   - scipy
   - scikit-image
-
+  - poppler<=0.61
 # Mask_RCNN requirements
   - Pillow
   - cython
