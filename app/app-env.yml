@@ -8,7 +8,7 @@ dependencies:
   - pyqt
   - scipy
   - scikit-image
-
+  - rasterio
 # Mask_RCNN requirements
   - Pillow
   - cython
