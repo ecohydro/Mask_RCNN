@@ -9,6 +9,7 @@ dependencies:
   - scipy
   - scikit-image
   - poppler<=0.61
+  - rasterio
 # Mask_RCNN requirements
   - Pillow
   - cython
