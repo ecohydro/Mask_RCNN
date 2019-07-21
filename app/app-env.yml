@@ -9,7 +9,6 @@ dependencies:
   - scipy
   - scikit-image
   - poppler<=0.61
-  - rasterio
 # Mask_RCNN requirements
   - Pillow
   - cython
@@ -24,3 +23,4 @@ dependencies:
   - pip:
       # Utilities
       - imgaug # for mrcnn
+      - rasterio # for reading img, conda can't install without libpoppler issue
