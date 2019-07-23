@@ -7,30 +7,11 @@ import PIL.ImageFont as ImageFont
 #custom package for loading configs, model class and detection func
 from cropmask import model_configs
 from cropmask.mrcnn import model as modellib
-
+import tensorflow as tf
+import skimage.io as skio
+from rasterio.plot import reshape_as_image
+from rasterio.io import MemoryFile
 # Core detection functions
-
-
-def load_model(checkpoint):
-    """Load a detection model (i.e., create a graph) from a .pb file.
-
-    Args:
-        checkpoint: .pb file of the model.
-
-    Returns: the loaded graph.
-
-    """
-    config = model_configs.LandsatInferenceConfig(3)
-    print('keras_detector.py: Loading model weights...')
-    LOGS_DIR = "/mnt/azure_file_share/logs"
-    model = modellib.MaskRCNN(mode="inference",
-                              model_dir=LOGS_DIR,
-                              config=config)
-    model.load_weights(checkpoint, by_name=True)
-    print('keras_detector.py: Model weights loaded.')
-
-    return model
-
 
 def open_image(image_bytes):
     """ Open an image in binary format using PIL.Image and convert to RGB mode
@@ -40,16 +21,23 @@ def open_image(image_bytes):
     Returns:
         an PIL image object in RGB mode
     """
-    image = Image.open(image_bytes)
-    if image.mode not in ('RGBA', 'RGB'):
-        raise AttributeError('Input image not in RGBA or RGB mode and cannot be processed.')
-    if image.mode == 'RGBA':
-        # Image.convert() returns a converted copy of this image
-        image = image.convert(mode='RGB')
-    return image
+    # image = Image.open(image_bytes)
+    # if image.mode not in ('RGBA', 'RGB'):
+    #     raise AttributeError('Input image not in RGBA or RGB mode and cannot be processed.')
+    # if image.mode == 'RGBA':
+    #     # Image.convert() returns a converted copy of this image
+    #     image = image.convert(mode='RGB')
+    # return image
+
+    with open(image_bytes, 'rb') as f, MemoryFile(f) as memfile:
+        with memfile.open() as src:
+            arr = reshape_as_image(src.read())
+    # returns the array for detection and the PIL img object for drawing since model trianed on flaot 32
+    # and PIL can't read tiff (float32) and png and jpeg don't support float 32
+    return arr, Image.fromarray(np.unint16(arr), mode='RGB')
 
 
-def generate_detections(model, image):
+def generate_detections(arr):
     """ Generates a set of bounding boxes with confidence and class prediction for one input image file.
 
     Args:
@@ -59,17 +47,24 @@ def generate_detections(model, image):
     Returns:
         boxes, scores, classes, and the image loaded from the input image_file - for one image
     """
-    image_np = np.asarray(image, np.uint8)
-    image_np = image_np[:, :, :3] # Remove the alpha channel
+        # Load the model
+    # The model was copied to this location when the container was built; see ../Dockerfile
+    config = model_configs.LandsatInferenceConfig(3)
+    print('keras_detector.py: Loading model weights...')
+    LOGS_DIR = "/app/keras_iNat_api/logs"
+    with tf.device("/cpu:0"):
+      model = modellib.MaskRCNN(mode="inference",
+                                model_dir=LOGS_DIR,
+                                config=config)
+    model_path = '/app/keras_iNat_api/mask_rcnn_landsat-512-cp_0042.h5'
+    model.load_weights(model_path, by_name=True)
+    print('keras_detector.py: Model weights loaded.')
 
-    result = model.detect([image], verbose=1)
+    result = model.detect([arr], verbose=1)
     r = result[0]
-    return r['rois'], r['class_ids'], r['scores'], r['masks'], image_np # these are lists of bboxes, scores etc
-
+    return r['rois'], r['class_ids'], r['scores'], r['masks']# these are lists of bboxes, scores etc
 
 # Rendering functions
-
-
 def render_bounding_boxes(boxes, scores, classes, image, label_map={}, confidence_threshold=0.5):
     """Renders bounding boxes, label and confidence on an image if confidence is above the threshold.
 
