@@ -60,3 +60,4 @@ dependencies:
       - porder
       - imgaug # for mrcnn
       - azure
+      - rioxarray>=0.0.9
