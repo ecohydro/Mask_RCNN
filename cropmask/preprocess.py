@@ -14,10 +14,10 @@ from shapely.geometry import shape
 from osgeo import gdal
 from itertools import product
 from rasterio import windows
-from multiprocessing.pool import ThreadPool
 from cropmask.label_prep import rio_bbox_to_polygon
 from cropmask.misc import parse_yaml, make_dirs
 from cropmask import sequential_grid, label_prep
+from cropmask import io_utils
 
 random.seed(42)
 
@@ -37,7 +37,7 @@ class PreprocessWorkflow():
         self.ROOT = params['dirs']["root"]
         self.TMP = params['dirs']["tmp"]
         self.DATASET = os.path.join(self.ROOT, params['dirs']["dataset"])
-        self.STACKED = os.path.join(self.DATASET, params['dirs']["stacked"])
+        self.SCENE = os.path.join(self.DATASET, params['dirs']["scene"])
         self.TRAIN = os.path.join(self.DATASET, params['dirs']["train"])
         self.TEST = os.path.join(self.DATASET, params['dirs']["test"])
         self.GRIDDED_IMGS = os.path.join(self.TMP, params['dirs']["gridded_imgs"])
@@ -48,7 +48,7 @@ class PreprocessWorkflow():
         # scene specific paths and variables
         self.rasterized_label_path = ''
         self.band_list = [] # the band indices
-        self.meta = {} # meta data for the stacked raster
+        self.meta = {} # meta data for the scene
         self.chip_ids = [] # list of chip ids of form [scene_id]_[random number]
         self.small_area_filter = params['label_vals']['small_area_filter']
         self.neg_buffer = params['label_vals']['neg_buffer']
@@ -96,7 +96,7 @@ class PreprocessWorkflow():
         directory_list = [
                 self.TMP,
                 self.DATASET,
-                self.STACKED,
+                self.SCENE,
                 self.TRAIN,
                 self.TEST,
                 self.GRIDDED_IMGS,
@@ -118,18 +118,18 @@ class PreprocessWorkflow():
         filtered_product_paths = [os.path.join(self.scene_dir_path, fname) for fname in filtered_product_list]
         return filtered_product_paths
     
-    def load_and_stack_bands(self, product_paths):
-        arr_list = [skio.imread(product_path) for product_path in product_paths]
+    def load_meta_and_bounds(self, product_paths):
         # get metadata and edit meta obj for stacked raster
         with rasterio.open(product_paths[0]) as rast:
                 meta = rast.meta.copy()
                 meta.update(compress="lzw")
-                meta["count"] = len(arr_list)
+                meta["count"] = len(product_paths)
                 self.meta=meta
                 self.bounds = rast.bounds
-        stacked_arr = np.dstack(arr_list)
-        stacked_arr[stacked_arr <= 0]=0
-        return stacked_arr
+        return self.meta, self.bounds
+    
+    def load_single_scene(self, product_paths):
+        return io_utils.read_bands_lsr(product_paths)
         
     def stack_and_save_bands(self):
         """Load the landsat bands specified by yaml_to_band_index and returns 
@@ -152,12 +152,11 @@ class PreprocessWorkflow():
         """
         
         product_paths = self.get_product_paths(self.band_list)
-        stacked_arr = self.load_and_stack_bands(product_paths)
-        stacked_name = os.path.basename(product_paths[0])[:-10] + ".tif"
-        stacked_path = os.path.join(self.STACKED, stacked_name)
-        self.stacked_path = stacked_path
-        with rasterio.open(stacked_path, "w+", **self.meta) as out:
-            out.write(reshape_as_raster(stacked_arr))
+        scene_arr = self.load_single_scene(product_paths)
+        scene_name = os.path.basename(product_paths[0])[:-10] + ".tif"
+        scene_path = os.path.join(self.SCENE, scene_name)
+        self.scene_path = scene_path
+        io_utils.write_xarray_lsr(scene_arr, scene_path)
             
     def preprocess_labels(self):
         """For preprcoessing reference dataset"""
@@ -218,7 +217,7 @@ class PreprocessWorkflow():
         appends a random unique id to each tif and label pair, appending string 'label' to the 
         mask.
         """
-        chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.stacked_path, self.GRIDDED_IMGS, output_name_template='tile_{}-{}.tif', grid_size=self.grid_size)
+        chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.GRIDDED_IMGS, output_name_template='tile_{}-{}.tif', grid_size=self.grid_size)
         chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.GRIDDED_LABELS, output_name_template='tile_{}-{}_label.tif', grid_size=self.grid_size)
         return (chip_img_paths, chip_label_paths)      
                 
@@ -270,6 +269,7 @@ class PreprocessWorkflow():
             old_chip_path = os.path.join(self.GRIDDED_IMGS, chip_id+'.tif')
             shutil.copyfile(old_chip_path, os.path.join(new_chip_path, chip_id + ".tif")) # moves the chips   
             os.remove(old_chip_path)
+            
     def connected_components(self):
         """
         Extracts individual instances into their own tif files. Saves them
@@ -340,7 +340,9 @@ class PreprocessWorkflow():
         
         product_list = self.get_product_paths(band_list)
         
-        self.load_and_stack_bands(product_list)
+        meta, bounds = wflow.load_meta_and_bounds(product_list)
+
+        scene = wflow.load_single_scene(product_list)
         
         self.stack_and_save_bands()
         
