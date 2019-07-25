@@ -28,6 +28,8 @@ RUN apt-get update -y && apt-get install -y git-core
 
 RUN echo "source activate ai4e_py_api" >> ~/.bashrc \
     && git clone https://github.com/ecohydro/CropMask_RCNN ~/CropMask_RCNN
+
+RUN conda update conda -y
     
 RUN conda env update -f ~/CropMask_RCNN/app/app-env.yml -n ai4e_py_api \
     && . activate ai4e_py_api \
@@ -59,8 +61,8 @@ ENV SERVICE_OWNER=AI4E_PyTorch_Example \
 
 ENV API_PREFIX=/v1/keras_iNat_api
 
-ENV STORAGE_ACCOUNT_NAME= \
-    STORAGE_ACCOUNT_KEY=
+ENV STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_NAME \
+    STORAGE_ACCOUNT_KEY=$AZURE_STORAGE_KEY
 
 # Expose the port that is to be used when calling your API
 EXPOSE 80

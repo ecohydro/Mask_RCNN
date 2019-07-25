@@ -28,8 +28,8 @@ def open_image(image_bytes):
     #     # Image.convert() returns a converted copy of this image
     #     image = image.convert(mode='RGB')
     # return image
-
-    with open(image_bytes, 'rb') as f, MemoryFile(f) as memfile:
+    # https://docs.python.org/3/library/io.html#io.BytesIO
+      with MemoryFile(image_bytes) as memfile:
         with memfile.open() as src:
             arr = reshape_as_image(src.read())
     # returns the array for detection and the PIL img object for drawing since model trianed on flaot 32
