@@ -72,7 +72,7 @@ def detect(*args, **kwargs):
         print('runserver.py: detect(), rendering and saving result image...')
         # save the PIL Image object to a ByteIO stream so that it can be written to blob storage
         output_img_stream = BytesIO()
-        image.save(output_img_stream, format='jpeg')
+        image_for_drawing.save(output_img_stream, format='jpeg')
         output_img_stream.seek(0)
 
         sas_blob_helper = SasBlob()
