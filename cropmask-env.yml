@@ -51,6 +51,7 @@ dependencies:
   - pip:
       # Utilities
       - download
+      - click
       - tqdm
       - kiwisolver
       # EA tools via pip

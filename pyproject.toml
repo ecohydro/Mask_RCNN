@@ -1,0 +1,26 @@
+[build-system]
+requires = ["flit"]
+build-backend = "flit.buildapi"
+
+[tool.flit.metadata]
+module = "cropmask"
+author = "Ryan Avery"
+author-email = "ravery@ucsb.edu"
+home-page = "https://github.com/ecohydro/CropMask_RCNN"
+description-file = "README.md"
+classifiers = ["License :: OSI Approved :: MIT License",
+        "Development Status :: 2 - Pre-Alpha",
+        "Environment :: Console",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Education",
+        "Intended Audience :: Science/Research",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "Topic :: Scientific/Engineering :: Image Recognition",
+        "Topic :: Scientific/Engineering :: Visualization",
+        "Topic :: Scientific/Engineering :: GIS",
+        "Programming Language :: Python :: 3.6",]
+keywords = "segmentation keras landsat agriculture"
+
