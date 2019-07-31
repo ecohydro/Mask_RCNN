@@ -18,6 +18,7 @@ from cropmask.label_prep import rio_bbox_to_polygon
 from cropmask.misc import parse_yaml, make_dirs
 from cropmask import sequential_grid, label_prep
 from cropmask import io_utils
+import time
 
 random.seed(42)
 
@@ -340,9 +341,9 @@ class PreprocessWorkflow():
         
         product_list = self.get_product_paths(band_list)
         
-        meta, bounds = wflow.load_meta_and_bounds(product_list)
+        meta, bounds = self.load_meta_and_bounds(product_list)
 
-        scene = wflow.load_single_scene(product_list)
+        scene = self.load_single_scene(product_list)
         
         self.stack_and_save_bands()
         
