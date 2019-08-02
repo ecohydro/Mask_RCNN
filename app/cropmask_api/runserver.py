@@ -84,7 +84,7 @@ def detect(*args, **kwargs):
             getenv('STORAGE_ACCOUNT_NAME'), getenv('STORAGE_ACCOUNT_KEY'), container_name, blob_access_duration_hrs)
 
         # Write the image to the blob
-        sas_blob_helper.write_blob(sas_url, 'detect_output.jpg', output_img_stream)
+        sas_blob_helper.write_blob(sas_url, 'task_{}_detect_output.jpg'.format(taskID), output_img_stream)
         
         ai4e_service.api_task_manager.CompleteTask(taskId, 'completed - output written to: ' + sas_url)
         print('runserver.py: detect() finished.')

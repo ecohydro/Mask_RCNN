@@ -3,7 +3,7 @@ import PIL.Image as Image
 import PIL.ImageColor as ImageColor
 import PIL.ImageDraw as ImageDraw
 import PIL.ImageFont as ImageFont
-
+from skimage import img_as_ubyte, exposure
 #custom package for loading configs, model class and detection func
 from cropmask import model_configs
 from cropmask.mrcnn import model as modellib
@@ -28,13 +28,14 @@ def open_image(image_bytes):
     #     # Image.convert() returns a converted copy of this image
     #     image = image.convert(mode='RGB')
     # return image
-
-    with open(image_bytes, 'rb') as f, MemoryFile(f) as memfile:
+    # https://docs.python.org/3/library/io.html#io.BytesIO
+    with MemoryFile(image_bytes) as memfile:
         with memfile.open() as src:
             arr = reshape_as_image(src.read())
-    # returns the array for detection and the PIL img object for drawing since model trianed on flaot 32
-    # and PIL can't read tiff (float32) and png and jpeg don't support float 32
-    return arr, Image.fromarray(np.unint16(arr), mode='RGB')
+    # returns the array for detection and the PIL img object for drawing since model trained on int16
+    # and PIL can't read 3 band RGB int 16 tiff
+    # so we use img_as_ubyte to conver 16 bit array to 8 bit. exposure is used to increase the color contrast
+    return arr, Image.fromarray(img_as_ubyte(exposure.equalize_adapthist(arr)), mode='RGB')
 
 
 def generate_detections(arr):
@@ -56,7 +57,7 @@ def generate_detections(arr):
       model = modellib.MaskRCNN(mode="inference",
                                 model_dir=LOGS_DIR,
                                 config=config)
-    model_path = '/app/keras_iNat_api/mask_rcnn_landsat-512-cp_0042.h5'
+    model_path = '/home/rave/CropMask_RCNN/app/keras_iNat_api/mask_rcnn_landsat-512-cp_0042.h5'
     model.load_weights(model_path, by_name=True)
     print('keras_detector.py: Model weights loaded.')
 
@@ -97,7 +98,7 @@ def render_bounding_boxes(boxes, scores, classes, image, label_map={}, confidenc
 def draw_bounding_boxes_on_image(image,
                                  boxes,
                                  color='LimeGreen',
-                                 thickness=4,
+                                 thickness=1,
                                  display_str_list_list=()):
   """Draws bounding boxes on image.
 
@@ -126,7 +127,7 @@ def draw_bounding_boxes_on_image(image,
     if display_str_list_list:
       display_str_list = display_str_list_list[i]
     draw_bounding_box_on_image(image, boxes[i, 0], boxes[i, 1], boxes[i, 2],
-                               boxes[i, 3], color, thickness, display_str_list)
+                               boxes[i, 3], color, thickness, display_str_list, use_normalized_coordinates=False)
 
 
 def draw_bounding_box_on_image(image,
@@ -135,7 +136,7 @@ def draw_bounding_box_on_image(image,
                                ymax,
                                xmax,
                                color='red',
-                               thickness=4,
+                               thickness=1,
                                display_str_list=(),
                                use_normalized_coordinates=True):
   """Adds a bounding box to an image.
