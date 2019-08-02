@@ -32,10 +32,16 @@ def open_image(image_bytes):
     with MemoryFile(image_bytes) as memfile:
         with memfile.open() as src:
             arr = reshape_as_image(src.read())
+<<<<<<< HEAD:app/cropmask_api/keras_detector.py
     # returns the array for detection and the PIL img object for drawing since model trained on int16
     # and PIL can't read 3 band RGB int 16 tiff
     # so we use img_as_ubyte to conver 16 bit array to 8 bit. exposure is used to increase the color contrast
     return arr, Image.fromarray(img_as_ubyte(exposure.equalize_adapthist(arr)), mode='RGB')
+=======
+    # returns the array for detection and the PIL img object for drawing since model trianed on flaot 32
+    # and PIL can't read tiff (float32) and png and jpeg don't support float 32
+    return arr, Image.fromarray(np.uint16(arr), mode='RGB')
+>>>>>>> api:app/keras_iNat_api/keras_detector.py
 
 
 def generate_detections(arr):

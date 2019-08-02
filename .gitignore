@@ -1,5 +1,4 @@
-./app/Dockerfile
-./app/LocalForwarder.config
+app/LocalForwarder.config
 
 src/ # this is built from installing packages from github with conda
 azure_configs.yaml

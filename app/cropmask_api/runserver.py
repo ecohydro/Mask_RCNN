@@ -41,8 +41,8 @@ def process_request_data(request):
 
 # POST, async API endpoint example
 @ai4e_service.api_async_func(
-    api_path = '/detect', 
-    methods = ['POST'], 
+    api_path = '/detect',
+    methods = ['POST'],
     request_processing_function = process_request_data, # This is the data process function that you created above.
     maximum_concurrent_requests = 5, # If the number of requests exceed this limit, a 503 is returned to the caller.
     content_types = ACCEPTED_CONTENT_TYPES,
@@ -72,7 +72,7 @@ def detect(*args, **kwargs):
         print('runserver.py: detect(), rendering and saving result image...')
         # save the PIL Image object to a ByteIO stream so that it can be written to blob storage
         output_img_stream = BytesIO()
-        image.save(output_img_stream, format='jpeg')
+        image_for_drawing.save(output_img_stream, format='jpeg')
         output_img_stream.seek(0)
 
         sas_blob_helper = SasBlob()
@@ -85,7 +85,7 @@ def detect(*args, **kwargs):
 
         # Write the image to the blob
         sas_blob_helper.write_blob(sas_url, 'task_{}_detect_output.jpg'.format(taskID), output_img_stream)
-        
+
         ai4e_service.api_task_manager.CompleteTask(taskId, 'completed - output written to: ' + sas_url)
         print('runserver.py: detect() finished.')
     except:
