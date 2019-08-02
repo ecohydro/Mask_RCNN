@@ -24,3 +24,4 @@ dependencies:
       # Utilities
       - imgaug # for mrcnn
       - rasterio # for reading img, conda can't install without libpoppler issue
+      - cropmask
