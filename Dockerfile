@@ -15,7 +15,7 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
            /etc/apt/sources.list.d/cuda.list \
            /etc/apt/sources.list.d/nvidia-ml.list && \
 
-    apt-get update && \
+    apt-get update && \ 
 
 # ==================================================================
 # tools
@@ -52,6 +52,18 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
         python3.6 \
         python3.6-dev \
         python3-distutils-extra \
+        # geospatial dependencies
+        software-properties-common \
+        libfreetype6-dev \
+        libpng-dev \
+        libzmq3-dev \
+        libspatialindex-dev \
+        gdal-bin \
+        libgdal-dev \
+        python3-gdal \
+        libsm6 \
+        nano \
+        zip \
         && \
     wget -O ~/get-pip.py \
         https://bootstrap.pypa.io/get-pip.py && \
@@ -63,12 +75,42 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
         && \
     $PIP_INSTALL \
         numpy \
+        matplotlib \
+        PyQt5 \
+        seaborn \
+        xlrd \
         scipy \
+        scikit-learn \
+        scikit-image \
+        xarray \
+        dask \
         pandas \
         cloudpickle \
-        scikit-learn \
-        matplotlib \
         Cython \
+        Pillow \
+        opencv-python \
+        IPython[all] \
+        rasterstats \
+        geopy \
+        geos \
+        pyproj \
+        pyshp \
+        six \
+        cartopy \
+        geopandas \
+        rasterio==1.0.24 \
+        contextily \
+        pysal \
+        pyproj \
+        folium \
+        rtree \
+        urllib3 \
+        networkx \
+        geojson \
+        affine \
+        albumentations \
+        rio-cogeo==1.0.0 \
+        rioxarray \
         && \
 
 # ==================================================================
