@@ -47,6 +47,7 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
         software-properties-common \
         && \
     add-apt-repository ppa:deadsnakes/ppa && \
+    add-apt-repository ppa:ubuntugis/ppa && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive $APT_INSTALL \
         python3.6 \
@@ -84,7 +85,7 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
         scikit-image \
         xarray \
         dask \
-        pandas \
+        pandas==0.25.0 \
         cloudpickle \
         Cython \
         Pillow \
@@ -111,6 +112,8 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
         albumentations \
         rio-cogeo==1.0.0 \
         rioxarray \
+        solaris \
+        keras \
         && \
 
 # ==================================================================
@@ -118,7 +121,15 @@ RUN APT_INSTALL="apt-get install -y --no-install-recommends" && \
 # ------------------------------------------------------------------
 
     $PIP_INSTALL \
-        tf-nightly-gpu-2.0-preview \
+        tensorflow-gpu==1.14.0 \
+        && \
+
+# ==================================================================
+# Azure ML
+#
+
+    $PIP_INSTALL \
+        azureml-sdk[automl] --ignore-installed PyYAML \
         && \
 
 # ==================================================================

@@ -47,6 +47,7 @@ from cropmask.preprocess import PreprocessWorkflow
 from cropmask import datasets
 from cropmask.mrcnn import model as modellib
 from cropmask.mrcnn import visualize
+from cropmask.misc import parse_yaml
 import numpy as np
 
 ############################################################
