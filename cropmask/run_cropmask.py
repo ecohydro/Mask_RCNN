@@ -47,13 +47,11 @@ from cropmask.preprocess import PreprocessWorkflow
 from cropmask import datasets
 from cropmask.mrcnn import model as modellib
 from cropmask.mrcnn import visualize
-from cropmask.misc import parse_yaml
 import numpy as np
 
 ############################################################
 #  Training
 ############################################################
-params = parse_yaml(param_path)
 
 def train(model, dataset_dir, subset, config):
     """Train the model."""
@@ -163,21 +161,21 @@ def mask_to_rle(image_id, mask, scores):
 ############################################################
 
 
-def detect(model, dataset_dir, subset, wflow):
+def detect(model, dataset_dir, subset, config):
     """Run detection on images in the given directory."""
     print("Running on {}".format(dataset_dir))
 
     # Create directory
-    if not os.path.exists(wflow.RESULTS):
-        os.makedirs(wflow.RESULTS)
+    if not os.path.exists(config.RESULTS):
+        os.makedirs(config.RESULTS)
     submit_dir = "submit_{:%Y%m%dT%H%M%S}".format(datetime.datetime.now())
-    submit_dir = os.path.join(wflow.RESULTS, submit_dir)
+    submit_dir = os.path.join(config.RESULTS, submit_dir)
     os.makedirs(submit_dir)
 
     # Read dataset
     dataset = datasets.ImageDataset(3)
     dataset.load_imagery(
-        dataset_dir, subset, image_source="landsat", class_name="agriculture", train_test_split_dir=wflow.RESULTS
+        dataset_dir, subset, image_source="landsat", class_name="agriculture", train_test_split_dir=config.RESULTS
     )
     dataset.prepare()
     # Load over images
@@ -330,7 +328,7 @@ if __name__ == "__main__":
     if args.command == "train":
         train(model, args.dataset, args.subset, config)
     elif args.command == "detect":
-        detect(model, args.dataset, args.subset, wflow)
+        detect(model, args.dataset, args.subset, config)
     else:
         print(
             "'{}' is not recognized. "

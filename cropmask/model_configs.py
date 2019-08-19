@@ -131,3 +131,5 @@ class LandsatInferenceConfig(LandsatConfig):
     RPN_NMS_THRESHOLD = 0.7
     #must be set to what pretrained resnet model expects, see https://github.com/matterport/Mask_RCNN/issues/1291
     RPN_ANCHOR_SCALES = (32, 64, 128, 256, 512)
+
+    RESULTS = "/mnt/azureml-filestore-896933ab-f4fd-42b2-a154-0abb35dfb0b0/results" 
