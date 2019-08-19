@@ -73,7 +73,7 @@ exec_environment = Estimator(source_directory=os.getcwd(),
                              entry_script='cropmask/run_cropmask.py',
                              script_params=script_params,              
                              compute_target=gpu_cluster,
-                             custom_docker_image=os.path.basename(os.path.split(configs['container_registry'])[-2])+".azurecr.io/tensorflow-py36-cu90:4",
+                             custom_docker_image=os.path.basename(os.path.split(configs['container_registry'])[-2])+".azurecr.io/cropmask:1",
                              user_managed=True,
                              use_docker=True)
 
