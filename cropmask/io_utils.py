@@ -3,8 +3,9 @@ import rioxarray
 import glob
 import os
 import numpy as np
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
+import requests
+import geopandas as gpd
+import fiona
 
 def open_rasterio_lsr(path):
     """Reads in a Landsat surface reflectance band and correctly assigns the band metadata.
@@ -59,3 +60,14 @@ def read_scenes(scenes_folder_pattern):
     sr_paths = [glob.glob(scene_folder+'/*band*') for scene_folder in scene_folders]
     xr_arrs = [read_bands_lsr(paths) for paths in sr_paths]
     return xr.concat(xr_arrs, dim="time")
+
+def zipped_shp_url_to_gdf(url):
+    """Opens a zipped shapefile in memory as a GeoDataFrame. Currently used for
+    opening nebraska state shapefile from US Census as gdf."""
+    
+    request = requests.get(url)
+
+    b = bytes(request.content)
+    with fiona.BytesCollection(b) as f:
+        crs = f.crs
+        return gpd.GeoDataFrame.from_features(f, crs=crs)
