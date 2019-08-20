@@ -244,7 +244,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--logs",
         required=False,
-        default=DEFAULT_LOGS_DIR,
+        default="logs/",
         metavar="/path/to/logs/",
         help="Logs and checkpoints directory (default=logs/)",
     )
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_configs",
         required=True,
-        metavar="path/to/model_confgis.py",
+        metavar="path/to/model_configs.py",
         help="contains inference and training class configs and paths",
     )
     args = parser.parse_args()

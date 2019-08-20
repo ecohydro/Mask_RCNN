@@ -64,9 +64,11 @@ from azureml.train.estimator import Estimator
 import os
 
 script_params = {
+    "train": "",
     "--dataset": ws.get_default_datastore().path("landsat-512").as_mount(),
     "--subset": "train",
-    "--weights": "coco"
+    "--weights": "coco",
+    "--model_configs": "cropmask/model_configs.py",
 }
 
 exec_environment = Estimator(source_directory=os.getcwd(),
