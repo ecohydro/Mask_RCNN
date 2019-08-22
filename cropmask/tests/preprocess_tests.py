@@ -10,6 +10,27 @@ def wflow():
                                  "/mnt/azureml-filestore-896933ab-f4fd-42b2-a154-0abb35dfb0b0/external/nebraska_pivots_projected.geojson")
     return wflow
 
+def test_sequential_grid():
+    from cropmask import sequential_grid as sg
+    from rasterio import windows
+    from cropmask.label_prep import rio_bbox_to_polygon
+    from rasterio import coords
+    from cropmask.io_utils import zipped_shp_url_to_gdf 
+    import us
+    import rasterio as rio
+    import geopandas as gpd
+    %matplotlib inline
+    import matplotlib.pyplot as plt
+
+    #specify zipped shapefile url
+    nebraska_url = us.states.NE.shapefile_urls('state')
+    gdf = zipped_shp_url_to_gdf(nebraska_url)
+    band = rio.open("/permmnt/cropmaskperm/unpacked_landsat_downloads/LT050280322005012001T2-SC20190818204900/LT05_L1GS_028032_20050120_20160912_01_T2_sr_band3.tif")
+    gdf = gdf.to_crs(band.meta['crs'].to_dict())
+    chip_list_full = sg.get_tiles_for_threaded_map(band, gdf, 512, 512)
+    assert len(chip_list_full)==99
+    # should also test for the label image
+
 def test_init(wflow):
     
     assert wflow

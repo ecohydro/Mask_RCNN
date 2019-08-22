@@ -205,11 +205,12 @@ class PreprocessWorkflow():
             burned[burned > 0] = 1
             burned = burned.astype(np.int16, copy=False)
             out.write(burned, 1)
-        print(
+            
+            print(
             "Done applying negbuff of {negbuff} and filtering small labels of area less than {area}".format(
-                negbuff=self.neg_buffer, area=self.small_area_filter
+                negbuff=self.neg_buffer, area=self.small_area_filter)
                 )
-            )
+            return burned
         
     def grid_images(self):
         """
@@ -217,8 +218,10 @@ class PreprocessWorkflow():
         appends a random unique id to each tif and label pair, appending string 'label' to the 
         mask.
         """
-        chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.GRIDDED_IMGS, output_name_template='tile_{}-{}.tif', grid_size=self.grid_size)
-        chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.GRIDDED_LABELS, output_name_template='tile_{}-{}_label.tif', grid_size=self.grid_size)
+        nebraska_url = us.states.NE.shapefile_urls('state') #should be abstracted out for other regions to accept geojson
+        gdf = zipped_shp_url_to_gdf(nebraska_url)
+        chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.GRIDDED_IMGS, gdf, output_name_template='tile_{}-{}.tif', grid_size=self.grid_size)
+        chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.GRIDDED_LABELS, gdf, output_name_template='tile_{}-{}_label.tif', grid_size=self.grid_size)
         return (chip_img_paths, chip_label_paths)      
                 
     def rm_mostly_empty(self, scene_path, label_path):
