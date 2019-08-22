@@ -5,9 +5,9 @@ import pytest
 
 @pytest.fixture
 def wflow():
-    wflow = pp.PreprocessWorkflow("/home/ryan/work/CropMask_RCNN/cropmask/preprocess_config.yaml", 
-                                 "/mnt/azureml-filestore-896933ab-f4fd-42b2-a154-0abb35dfb0b0/unpacked_landsat_downloads/032031/LT050320312005082801T1-SC20190418222350/",
-                                 "/mnt/azureml-filestore-896933ab-f4fd-42b2-a154-0abb35dfb0b0/external/nebraska_pivots_projected.geojson")
+    wflow = pp.PreprocessWorkflow("/home/ryan/work/CropMask_RCNN/cropmask/test_preprocess_config.yaml", 
+                                 "/permmnt/cropmaskperm/unpacked_landsat_downloads/LT050320312005082801T1-SC20190418222350/",
+                                 "/permmnt/cropmaskperm/external/nebraska_pivots_projected.geojson")
     return wflow
 
 def test_sequential_grid():
@@ -19,7 +19,6 @@ def test_sequential_grid():
     import us
     import rasterio as rio
     import geopandas as gpd
-    %matplotlib inline
     import matplotlib.pyplot as plt
 
     #specify zipped shapefile url
@@ -37,7 +36,7 @@ def test_init(wflow):
     
 def test_make_dir():
     
-    directory_list = ["/mnt/azureml-filestore-896933ab-f4fd-42b2-a154-0abb35dfb0b0/pytest_dir"]
+    directory_list = ["/permmnt/cropmaskperm/pytest_dir"]
     make_dirs(directory_list)
     try: 
         assert os.path.exists(directory_list[0])
@@ -69,7 +68,7 @@ def test_yaml_to_band_index(wflow):
         
 def test_list_products():
     
-    path = "/mnt/azureml-filestore-896933ab-f4fd-42b2-a154-0abb35dfb0b0/unpacked_landsat_downloads/032031/LT050320312005082801T1-SC20190418222350/"
+    path = "/permmnt/cropmaskperm/unpacked_landsat_downloads/LT050320312005082801T1-SC20190418222350/"
     
     try: 
         product_list = os.listdir(path)
@@ -86,17 +85,6 @@ def test_get_product_paths(wflow):
     assert product_list
     assert len(product_list) == len(band_list)
     
-def test_load_and_stack_bands(wflow):
-    # fails because product list empty
-   
-    band_list = wflow.yaml_to_band_index()
-    
-    product_list = wflow.get_product_paths(band_list)
-    
-    stacked_arr = wflow.load_and_stack_bands(product_list)
-    
-    assert stacked_arr.shape[-1] == len(product_list)
-    
 def test_stack_and_save_bands(wflow):
     
     directory_list = wflow.setup_dirs()
@@ -105,7 +93,7 @@ def test_stack_and_save_bands(wflow):
     
     product_list = wflow.get_product_paths(band_list)
     
-    stacked_arr = wflow.load_and_stack_bands(product_list)
+    meta, bounds = wflow.load_meta_and_bounds(product_list)
     
     try: 
         wflow.stack_and_save_bands()
@@ -114,11 +102,11 @@ def test_stack_and_save_bands(wflow):
         print("The function didn't complete.")
     
     try: 
-        assert os.path.exists(wflow.stacked_path)
+        assert os.path.exists(wflow.scene_path)
         remove_dirs(directory_list)
     except AssertionError:
         remove_dirs(directory_list)
-        print("The stacked tif was not saved at the location "+wflow.stacked_path)
+        print("The stacked tif was not saved at the location "+wflow.scene_path)
 
 def test_negative_buffer_and_small_filter(wflow):
     
@@ -128,7 +116,7 @@ def test_negative_buffer_and_small_filter(wflow):
     
     product_list = wflow.get_product_paths(band_list)
     
-    stacked_arr = wflow.load_and_stack_bands(product_list)
+    meta, bounds = wflow.load_meta_and_bounds(product_list)
     
     wflow.stack_and_save_bands()
     
@@ -153,7 +141,7 @@ def test_grid_images(wflow):
     
     product_list = wflow.get_product_paths(band_list)
     
-    stacked_arr = wflow.load_and_stack_bands(product_list)
+    meta, bounds = wflow.load_meta_and_bounds(product_list)
     
     wflow.stack_and_save_bands()
     
@@ -174,15 +162,13 @@ def test_move_chips_to_folder(wflow):
     
     product_list = wflow.get_product_paths(band_list)
     
-    stacked_arr = wflow.load_and_stack_bands(product_list)
-    
+    meta, bounds = wflow.load_meta_and_bounds(product_list)
+        
     wflow.stack_and_save_bands()
     
     wflow.negative_buffer_and_small_filter(-31, 100)
     
     img_paths, label_paths = wflow.grid_images()
-    
-    wflow.remove_mostly_empty(img_paths, label_paths)
     try: 
         assert wflow.move_chips_to_folder()
         assert len(os.listdir(wflow.TRAIN)) > 1
@@ -199,15 +185,13 @@ def test_connected_components(wflow):
     
     product_list = wflow.get_product_paths(band_list)
     
-    stacked_arr = wflow.load_and_stack_bands(product_list)
-    
+    meta, bounds = wflow.load_meta_and_bounds(product_list)
+        
     wflow.stack_and_save_bands()
     
     wflow.negative_buffer_and_small_filter(-31, 100)
     
     img_paths, label_paths = wflow.grid_images()
-    
-    wflow.remove_mostly_empty(img_paths, label_paths)
     
     wflow.move_chips_to_folder()
     

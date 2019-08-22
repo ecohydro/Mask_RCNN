@@ -1,13 +1,13 @@
 dirs:
-    root: /permmnt/azureml-filestore-896933ab-f4fd-42b2-a154-0abb35dfb0b0/
+    root: /permmnt/cropmaskperm/
     tmp: /home/ryan/work/tmp/ # rasterio write operations to vm disk are an order of magnitude faster than writing to mounted Azure File Store
-    dataset: landsat-1024-xarray # rename this based on the imagery and labels
+    dataset: landsat-test # rename this based on the imagery and labels
     scene: scene
     train: train
     test: test
     gridded_imgs: landsat_grid_imgs
     gridded_labels: landsat_grid_labels
-    results: results
+    results: results-test
     region_name: western_nebraska # should be the same as azure_configs used for downloading the order, where source image folders (unpacked tars) are located
     region_labels: north_platte_landsat_tile_labels
     neg_buffered_labels: neg_buffered_labels

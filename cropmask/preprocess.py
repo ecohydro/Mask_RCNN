@@ -17,7 +17,8 @@ from rasterio import windows
 from cropmask.label_prep import rio_bbox_to_polygon
 from cropmask.misc import parse_yaml, make_dirs
 from cropmask import sequential_grid, label_prep
-from cropmask import io_utils
+from cropmask import io_utils 
+import us
 
 random.seed(42)
 
@@ -193,7 +194,7 @@ class PreprocessWorkflow():
         with rasterio.open(self.rasterized_label_path, "w+", **meta) as out:
             out_arr = out.read(1)
             # https://gis.stackexchange.com/questions/151339/rasterize-a-shapefile-with-geopandas-or-fiona-python#151861
-            shapes = shp_series.values.tolist()
+            shapes = shp_series.values
             burned = features.rasterize(
                 shapes=shapes,
                 fill=0,
@@ -219,7 +220,7 @@ class PreprocessWorkflow():
         mask.
         """
         nebraska_url = us.states.NE.shapefile_urls('state') #should be abstracted out for other regions to accept geojson
-        gdf = zipped_shp_url_to_gdf(nebraska_url)
+        gdf = io_utils.zipped_shp_url_to_gdf(nebraska_url)
         chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.GRIDDED_IMGS, gdf, output_name_template='tile_{}-{}.tif', grid_size=self.grid_size)
         chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.GRIDDED_LABELS, gdf, output_name_template='tile_{}-{}_label.tif', grid_size=self.grid_size)
         return (chip_img_paths, chip_label_paths)      
