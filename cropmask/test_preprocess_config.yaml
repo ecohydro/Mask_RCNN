@@ -8,8 +8,6 @@ dirs:
     gridded_imgs: landsat_grid_imgs
     gridded_labels: landsat_grid_labels
     results: results-test
-    region_name: western_nebraska # should be the same as azure_configs used for downloading the order, where source image folders (unpacked tars) are located
-    region_labels: north_platte_landsat_tile_labels
     neg_buffered_labels: neg_buffered_labels
 landsat_bands_to_include:
     - blue: true
