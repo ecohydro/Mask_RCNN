@@ -71,7 +71,7 @@ class PreprocessWorkflow():
     def __init__(self, param_path, scene_dir_path='nopath/', source_label_path='nopath/'):
         params = parse_yaml(param_path)
         self.params = params
-        self.source_label_path = source_label_path # if there is a referenc label
+        self.source_label_path = source_label_path
         self.scene_dir_path = scene_dir_path # path to the unpacked tar archive on azure storage
         self.scene_id = self.scene_dir_path.split("/")[-2] # gets the name of the folder the bands are in, the scene_id
         
@@ -88,7 +88,10 @@ class PreprocessWorkflow():
         self.RESULTS = os.path.join(self.ROOT, params['dirs']["results"], params['dirs']["dataset"])
         
         # scene specific paths and variables
-        self.rasterized_label_path = ''
+        self.scene_basename = os.path.splitext(os.path.basename(self.scene_dir_path))[0]
+        self.label_basename = os.path.splitext(os.path.basename(self.source_label_path))[0]
+        tifname = self.label_basename + "_" + self.scene_basename + ".tif"
+        self.rasterized_label_path = os.path.join(self.NEG_BUFFERED, tifname)
         self.band_list = [] # the band indices
         self.meta = {} # meta data for the scene
         self.chip_img_paths = [] # list of chip ids of form [scene_id]_[random number]
@@ -205,8 +208,6 @@ class PreprocessWorkflow():
         shp_series = self.preprocess_labels()
         meta = self.meta.copy()
         meta.update({'count':1})
-        tifname = os.path.splitext(os.path.basename(self.source_label_path))[0] + ".tif"
-        self.rasterized_label_path = os.path.join(self.NEG_BUFFERED, tifname)
         with rasterio.open(self.rasterized_label_path, "w+", **meta) as out:
             out_arr = out.read(1)
             # https://gis.stackexchange.com/questions/151339/rasterize-a-shapefile-with-geopandas-or-fiona-python#151861
@@ -233,12 +234,17 @@ class PreprocessWorkflow():
         """
         Grids up imagery to a variable size. Filters out imagery with too little usable data.
         appends a random unique id to each tif and label pair, appending string 'label' to the 
-        mask.
+        mask. Also filters out windoed images that don't fall within the extent that has been exhaustively labeled (gdf)
         """
         nebraska_url = us.states.NE.shapefile_urls('state') #should be abstracted out for other regions to accept geojson
         gdf = io_utils.zipped_shp_url_to_gdf(nebraska_url)
-        self.chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.GRIDDED_IMGS, gdf, output_name_template='tile_{}-{}.tif', grid_size=self.grid_size)
-        self.chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.GRIDDED_LABELS, gdf, output_name_template='tile_{}-{}_label.tif', grid_size=self.grid_size)
+        gdf = gdf.to_crs(self.meta['crs'].to_dict())
+        self.chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.GRIDDED_IMGS, 
+                                                                              gdf, output_name_template=self.scene_basename+'_tile_{}_{}.tif', 
+                                                                              grid_size=self.grid_size)
+        self.chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.GRIDDED_LABELS, 
+                                                                                gdf, output_name_template=self.scene_basename+'_tile_{}_{}_label.tif', 
+                                                                                grid_size=self.grid_size)
         return (self.chip_img_paths, self.chip_label_paths)      
                 
     def rm_mostly_empty(self, scene_path, label_path):
@@ -260,14 +266,21 @@ class PreprocessWorkflow():
             os.remove(scene_path)
             os.remove(label_path)
             print("removed scene and label, {}% bad data".format(self.usable_threshold))
+        else:
+            return scene_path, label_path # need to collect all these tuples and then reassign to self attrs
                 
     def remove_from_gridded(self):
                 
         def get_chip_id(string,ignore_string):
             return string.replace(ignore_string, '')
 
-        for img, label in zip(sorted(self.chip_img_paths, key=lambda x: get_chip_id(x,'.tif')), sorted(self.chip_label_paths, key=lambda x: get_chip_id(x,'_label.tif'))):
-            self.rm_mostly_empty(img,label)
+        good_paths_list_of_tuples = [self.rm_mostly_empty(img,label) for img, label in zip(sorted(self.chip_img_paths, key=lambda x: get_chip_id(x,'.tif')), sorted(self.chip_label_paths, key=lambda x: get_chip_id(x,'_label.tif')))]
+        
+        good_paths_list_of_tuples = [x for x in good_paths_list_of_tuples if x is not None]
+        
+        # extract the tuple elements into their own lists
+        self.chip_img_paths, self.chip_label_paths = map(list, zip(*good_paths_list_of_tuples))
+            
                 
     def move_chips_to_folder(self):
         """Moves a file with identifier pattern 760165086.tif to a 
@@ -300,18 +313,17 @@ class PreprocessWorkflow():
             arr = skio.imread(old_label_path)
 
             blob_labels = label_prep.connected_components(arr)
+            chip_id = os.path.basename(old_label_path.split("_label.tif")[0])
+            mask_folder = os.path.join(self.TRAIN, chip_id, "mask")
+            label_name = chip_id + "_label.tif"
             # for imgs with no instances, create empty mask
             if len(np.unique(blob_labels)) == 1:
-                chip_id = os.path.basename(os.path.splitext(old_label_path)[0])
-                mask_folder = os.path.join(self.TRAIN, chip_id, "mask")
-                skio.imsave(os.path.join(mask_folder, chip_id + ".tif"), blob_labels)
+                skio.imsave(os.path.join(mask_folder, label_name), blob_labels)
             else:
                 # only run connected comp if there is at least one instance
                 label_list = label_prep.extract_labels(blob_labels)
                 label_arrs = np.stack(label_list, axis=-1)
-                label_name = chip_id + "_labels.tif"
-                mask_path = os.path.join(self.TRAIN, chip_id, "mask")
-                label_path = os.path.join(mask_path, label_name)
+                label_path = os.path.join(mask_folder, label_name)
                 skio.imsave(label_path, label_arrs)
                 
     def train_test_split(self):
@@ -349,9 +361,9 @@ class PreprocessWorkflow():
         
         self.negative_buffer_and_small_filter(-31, 100)
         
-        img_paths, label_paths = self.grid_images()
+        self.grid_images()
         
-        self.remove_from_gridded(img_paths, label_paths)
+        self.remove_from_gridded()
         
         self.move_chips_to_folder()
         
@@ -361,7 +373,7 @@ class PreprocessWorkflow():
             
         stop = time.time()
         
-        print(stop-start, " seconds")
+        print(stop-start, " seconds for single task")
     
 def get_arr_channel_mean(chip_folder, channel):
     """

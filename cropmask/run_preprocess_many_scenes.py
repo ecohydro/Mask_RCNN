@@ -25,6 +25,8 @@ def run_scene_path_list(param_path, scene_path_list, labels_path):
     dask.compute(*results)
         
 if __name__ == "__main__":
+    
+    start = time.time()
     param_path = "/home/ryan/work/CropMask_RCNN/cropmask/test_preprocess_config.yaml"
     scene_list = [
         "/permmnt/cropmaskperm/unpacked_landsat_downloads/LT050280322005012001T2-SC20190818204900", 
@@ -49,3 +51,7 @@ if __name__ == "__main__":
         mean = get_arr_channel_mean(wflow.TRAIN,int(i)-1)
         means.append(mean)
         print("Band index {} mean for COCO normalization: ".format(i), mean)
+        
+    stop = time.time()
+        
+    print(stop-start, " seconds for this number of scenes: " + len(scene_list))
