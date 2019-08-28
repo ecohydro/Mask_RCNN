@@ -54,4 +54,4 @@ if __name__ == "__main__":
         
     stop = time.time()
         
-    print(stop-start, " seconds for this number of scenes: " + len(scene_list))
+    print(stop-start, " seconds for this number of scenes: " + str(len(scene_list)))
