@@ -1,5 +1,6 @@
 #sequential gridding of a single landsat scene is currently faster than threading or multiprocessing in grid.py
 import os
+import pathlib
 from itertools import product
 import rasterio
 from rasterio import windows
@@ -51,7 +52,7 @@ def get_tiles_for_threaded_map(ds, label_boundary_gdf, width, height):
     chip_list = list(map(lambda x: get_win(ds, label_boundary_gdf, x[0], x[1], width, height, big_window), offsets))
     return [x for x in chip_list if x is not None]
 
-def write_by_window(ds, out_dir, output_name_template, meta, window, transform):
+def write_by_window(ds, out_dir, fid, chip_id, output_name_template, meta, window, transform):
     """Writes out a window of a larger image given a window and transform. 
     Args:unioned
         ds (rasterio dataset): A rasterio object read with open()
@@ -65,12 +66,16 @@ def write_by_window(ds, out_dir, output_name_template, meta, window, transform):
     """
     meta['transform'] = transform
     meta['width'], meta['height'] = window.width, window.height
-    outpath = os.path.join(out_dir,output_name_template.format(int(window.col_off), int(window.row_off)))
+    outfolder = os.path.join(out_dir, chip_id.format(int(window.col_off), int(window.row_off)), fid)
+    if os.path.isdir(outfolder) is False:
+        path = pathlib.Path(outfolder)
+        path.mkdir(parents=True, exist_ok=False)
+    outpath = os.path.join(outfolder, output_name_template.format(int(window.col_off), int(window.row_off)))
     with rasterio.open(outpath, 'w', **meta) as outds:
         outds.write(ds.read(window=window))
     return outpath
 
-def grid_images_rasterio_sequential(in_path, out_dir, label_boundary_gdf, output_name_template='tile_{}-{}.tif', grid_size=512):
+def grid_images_rasterio_sequential(in_path, out_dir, fid, chip_id, label_boundary_gdf, output_name_template, grid_size=512):
     """Combines get_tiles_for_threaded_map, map_threads, and write_by_window to write out tiles of an image
     Args:
         in_path (str): Path to a raster for which to read with raterio.open()
@@ -84,5 +89,5 @@ def grid_images_rasterio_sequential(in_path, out_dir, label_boundary_gdf, output
     with rasterio.open(in_path) as src:
         meta = src.meta.copy()
         chip_list = get_tiles_for_threaded_map(src, label_boundary_gdf, width=grid_size, height=grid_size)
-        out_paths = list(map(lambda x: write_by_window(src, out_dir, output_name_template, meta, x[0], x[1]), chip_list)) #change to map_threads for threading but currently fails partway
+        out_paths = list(map(lambda x: write_by_window(src, out_dir, fid, chip_id, output_name_template, meta, x[0], x[1]), chip_list)) #change to map_threads for threading but currently fails partway
     return out_paths

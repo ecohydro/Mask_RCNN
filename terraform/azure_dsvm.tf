@@ -1,6 +1,6 @@
 variable "location" {
   description = "Datacenter location to deploy the VM into"
-  default     = "westus"
+  default     = "westus2"
 }
 
 variable "vm_name" {
@@ -190,15 +190,15 @@ resource "null_resource" "ds" {
   }
 
   provisioner "local-exec" {
-    command = "echo ${azurerm_virtual_machine.ds.id} > .vm-id-gpu"
+    command = "echo ${azurerm_virtual_machine.ds.id} > .vm-id"
   }
 
   provisioner "local-exec" {
-    command = "echo ${var.admin_user}@${azurerm_public_ip.ds.ip_address} > .vm-ip-gpu"
+    command = "echo ${var.admin_user}@${azurerm_public_ip.ds.ip_address} > .vm-ip"
   }
 
   provisioner "local-exec" {
-    command     = "make syncup-gpu"
+    command     = "make syncup"
     working_dir = "../"
   }
 

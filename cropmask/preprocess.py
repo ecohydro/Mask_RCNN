@@ -146,7 +146,7 @@ class PreprocessWorkflow():
                 meta["count"] = len(product_paths)
                 self.meta=meta
                 self.bounds = rast.bounds
-        return self.meta, self.bounds
+        return self
     
     def load_single_scene(self, product_paths):
         return io_utils.read_bands_lsr(product_paths)
@@ -177,6 +177,7 @@ class PreprocessWorkflow():
         scene_path = os.path.join(self.SCENE, scene_name)
         self.scene_path = scene_path
         io_utils.write_xarray_lsr(scene_arr, scene_path)
+        return self
             
     def preprocess_labels(self):
         """For preprcoessing reference dataset"""
@@ -228,7 +229,7 @@ class PreprocessWorkflow():
             "Done applying negbuff of {negbuff} and filtering small labels of area less than {area}".format(
                 negbuff=self.neg_buffer, area=self.small_area_filter)
                 )
-            return burned
+        return self
         
     def grid_images(self):
         """
@@ -239,13 +240,13 @@ class PreprocessWorkflow():
         nebraska_url = us.states.NE.shapefile_urls('state') #should be abstracted out for other regions to accept geojson
         gdf = io_utils.zipped_shp_url_to_gdf(nebraska_url)
         gdf = gdf.to_crs(self.meta['crs'].to_dict())
-        self.chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.GRIDDED_IMGS, 
+        self.chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.TRAIN,  "image", self.scene_basename+'_tile_{}_{}',
                                                                               gdf, output_name_template=self.scene_basename+'_tile_{}_{}.tif', 
                                                                               grid_size=self.grid_size)
-        self.chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.GRIDDED_LABELS, 
+        self.chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.TRAIN, "mask", self.scene_basename+'_tile_{}_{}',
                                                                                 gdf, output_name_template=self.scene_basename+'_tile_{}_{}_label.tif', 
                                                                                 grid_size=self.grid_size)
-        return (self.chip_img_paths, self.chip_label_paths)      
+        return self      
                 
     def rm_mostly_empty(self, scene_path, label_path):
         """
@@ -280,27 +281,8 @@ class PreprocessWorkflow():
         
         # extract the tuple elements into their own lists
         self.chip_img_paths, self.chip_label_paths = map(list, zip(*good_paths_list_of_tuples))
+        return self
             
-                
-    def move_chips_to_folder(self):
-        """Moves a file with identifier pattern 760165086.tif to a 
-        folder path ZA0165086/image/ZA0165086.tif
-        
-        """
-
-        for old_chip_path in self.chip_img_paths:
-            chip_id = os.path.basename(os.path.splitext(old_chip_path)[0])
-            chip_folder_path = os.path.join(self.TRAIN, chip_id)
-            if os.path.exists(chip_folder_path) == False:
-                os.mkdir(chip_folder_path)
-            else:
-                raise Exception('{} should not exist prior to being created in this function, it has not been deleted properly prior to a new run'.format(folder_path)) 
-            new_chip_path = os.path.join(chip_folder_path, "image")
-            mask_path = os.path.join(chip_folder_path, "mask")
-            os.mkdir(new_chip_path)
-            os.mkdir(mask_path)
-            shutil.copyfile(old_chip_path, os.path.join(new_chip_path, chip_id + ".tif")) # moves the chips   
-            os.remove(old_chip_path)
             
     def connected_components(self):
         """
@@ -325,6 +307,7 @@ class PreprocessWorkflow():
                 label_arrs = np.stack(label_list, axis=-1)
                 label_path = os.path.join(mask_folder, label_name)
                 skio.imsave(label_path, label_arrs)
+        return self
                 
     def train_test_split(self):
         """Takes a sample of folder ids and copies them to a test directory
@@ -353,9 +336,7 @@ class PreprocessWorkflow():
         
         product_list = self.get_product_paths(band_list)
         
-        meta, bounds = self.load_meta_and_bounds(product_list)
-
-        scene = self.load_single_scene(product_list)
+        self.load_meta_and_bounds(product_list)
         
         self.stack_and_save_bands()
         
@@ -364,8 +345,6 @@ class PreprocessWorkflow():
         self.grid_images()
         
         self.remove_from_gridded()
-        
-        self.move_chips_to_folder()
         
         self.connected_components()
         

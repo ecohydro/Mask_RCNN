@@ -29,12 +29,12 @@ if __name__ == "__main__":
     start = time.time()
     param_path = "/home/ryan/work/CropMask_RCNN/cropmask/test_preprocess_config.yaml"
     scene_list = [
-        "/permmnt/cropmaskperm/unpacked_landsat_downloads/LT050280322005012001T2-SC20190818204900", 
-        "/permmnt/cropmaskperm/unpacked_landsat_downloads/LT050310322005021001T1-SC20190818205059",
-        "/permmnt/cropmaskperm/unpacked_landsat_downloads/LT050290312005031601T1-SC20190818204935",  
-        "/permmnt/cropmaskperm/unpacked_landsat_downloads/LT050320312005011601T1-SC20190818205113",
+        "/mnt/cropmaskperm/unpacked_landsat_downloads/LT050280322005012001T2-SC20190818204900", 
+        "/mnt/cropmaskperm/unpacked_landsat_downloads/LT050310322005021001T1-SC20190818205059",
+        "/mnt/cropmaskperm/unpacked_landsat_downloads/LT050290312005031601T1-SC20190818204935",  
+        "/mnt/cropmaskperm/unpacked_landsat_downloads/LT050320312005011601T1-SC20190818205113",
     ]
-    labels_path = "/permmnt/cropmaskperm/external/nebraska_pivots_projected.geojson"
+    labels_path = "/mnt/cropmaskperm/external/nebraska_pivots_projected.geojson"
     
     setup_dirs(param_path)
     
