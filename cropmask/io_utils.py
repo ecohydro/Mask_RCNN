@@ -46,7 +46,7 @@ def write_xarray_lsr(xr_arr, fpath):
 
 def read_scenes(scenes_folder_pattern):
     """
-    Reads in mu.tiple Landsat surface reflectance scenes given a regex pattern.
+    Reads in multiple Landsat surface reflectance scenes given a regex pattern.
 
     Args:
         path (str): Path of form "../*".

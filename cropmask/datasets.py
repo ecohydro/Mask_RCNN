@@ -4,6 +4,7 @@ import pandas as pd
 import skimage.io as skio
 import numpy as np
 import yaml
+from cropmask.misc import train_test_split
 
 class ImageDataset(utils.Dataset):
     """Generates the Imagery dataset used by mrcnn."""
@@ -19,8 +20,12 @@ class ImageDataset(utils.Dataset):
         assert image.ndim == 3
 
         return image
-
-    def load_imagery(self, dataset_dir, subset, image_source, class_name, train_test_split_dir):
+    
+    def split_imagery(self, dataset_dir, seed, split_proportion):
+        self.train_validate_ids, self.test_ids = train_test_split(dataset_dir, seed, split_proportion)
+        return self.train_validate_ids, self.test_ids
+        
+    def load_imagery(self, dataset_dir, subset, image_source, class_name):
         """Load a subset of the fields dataset.
 
         dataset_dir: Root directory of the dataset
@@ -35,16 +40,11 @@ class ImageDataset(utils.Dataset):
         # Add classes here
         self.add_class(image_source, 1, class_name)
         assert subset in ["train", "test"]
-        dataset_dir = os.path.join(dataset_dir, subset)
-        train_ids = pd.read_csv(os.path.join(train_test_split_dir, "train_ids.csv"))
-        train_list = list(train_ids["train"])
-        test_ids = pd.read_csv(os.path.join(train_test_split_dir, "test_ids.csv"))
-        test_list = list(test_ids["test"])
-        if subset == "test":
-            image_ids = test_list
+        if subset is "train":
+            image_ids = self.train_validate_ids
         else:
-            image_ids = train_list
-
+            image_ids = self.test_ids
+            
         # Add images
         for image_id in image_ids:
             self.add_image(

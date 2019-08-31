@@ -1,27 +1,16 @@
-import random
 import os
-import shutil
 import copy
 import skimage.io as skio
 import warnings
-import pandas as pd
-import numpy as np
 import geopandas as gpd
-from rasterio import features, coords
-from rasterio.plot import reshape_as_raster
+from rasterio import features
 import rasterio
-from shapely.geometry import shape
-from osgeo import gdal
-from itertools import product
-from rasterio import windows
+import us
+from numpy import uint8
 from cropmask.label_prep import rio_bbox_to_polygon
 from cropmask.misc import parse_yaml, make_dirs
 from cropmask import sequential_grid, label_prep
 from cropmask import io_utils 
-import us
-import time
-
-random.seed(42)
 
 def setup_dirs(param_path):
     """
@@ -37,29 +26,17 @@ def setup_dirs(param_path):
     
     # the folder structure for the unique run
     ROOT = params['dirs']["root"]
-    TMP = params['dirs']["tmp"]
     DATASET = os.path.join(ROOT, params['dirs']["dataset"])
     SCENE = os.path.join(DATASET, params['dirs']["scene"])
     TRAIN = os.path.join(DATASET, params['dirs']["train"])
-    TEST = os.path.join(DATASET, params['dirs']["test"])
-    GRIDDED_IMGS = os.path.join(TMP, params['dirs']["gridded_imgs"])
-    GRIDDED_LABELS = os.path.join(TMP, params['dirs']["gridded_labels"])
     NEG_BUFFERED = os.path.join(DATASET, params['dirs']["neg_buffered_labels"])
-    RESULTS = os.path.join(ROOT, params['dirs']["results"], params['dirs']["dataset"])
 
     directory_list = [
-            TMP,
             DATASET,
             SCENE,
             TRAIN,
-            TEST,
-            GRIDDED_IMGS,
-            GRIDDED_LABELS,
             NEG_BUFFERED,
-            RESULTS,
         ]
-    if os.path.exists(os.path.join(ROOT, params['dirs']["results"])) == False:
-        os.mkdir(os.path.join(ROOT, params['dirs']["results"]))
     make_dirs(directory_list)
     return directory_list
 
@@ -77,15 +54,10 @@ class PreprocessWorkflow():
         
          # the folder structure for the unique run
         self.ROOT = params['dirs']["root"]
-        self.TMP = params['dirs']["tmp"]
         self.DATASET = os.path.join(self.ROOT, params['dirs']["dataset"])
         self.SCENE = os.path.join(self.DATASET, params['dirs']["scene"])
         self.TRAIN = os.path.join(self.DATASET, params['dirs']["train"])
-        self.TEST = os.path.join(self.DATASET, params['dirs']["test"])
-        self.GRIDDED_IMGS = os.path.join(self.TMP, params['dirs']["gridded_imgs"])
-        self.GRIDDED_LABELS = os.path.join(self.TMP, params['dirs']["gridded_labels"])
         self.NEG_BUFFERED = os.path.join(self.DATASET, params['dirs']["neg_buffered_labels"])
-        self.RESULTS = os.path.join(self.ROOT, params['dirs']["results"], params['dirs']["dataset"])
         
         # scene specific paths and variables
         self.scene_basename = os.path.splitext(os.path.basename(self.scene_dir_path))[0]
@@ -209,6 +181,8 @@ class PreprocessWorkflow():
         shp_series = self.preprocess_labels()
         meta = self.meta.copy()
         meta.update({'count':1})
+        meta.update({'dtype':'uint8'})
+        meta.update({'nodata':255})
         with rasterio.open(self.rasterized_label_path, "w+", **meta) as out:
             out_arr = out.read(1)
             # https://gis.stackexchange.com/questions/151339/rasterize-a-shapefile-with-geopandas-or-fiona-python#151861
@@ -222,7 +196,7 @@ class PreprocessWorkflow():
             )
             burned[burned < 0] = 0
             burned[burned > 0] = 1
-            burned = burned.astype(np.int16, copy=False)
+            burned = burned.astype(uint8, copy=False)
             out.write(burned, 1)
             
             print(
@@ -240,49 +214,15 @@ class PreprocessWorkflow():
         nebraska_url = us.states.NE.shapefile_urls('state') #should be abstracted out for other regions to accept geojson
         gdf = io_utils.zipped_shp_url_to_gdf(nebraska_url)
         gdf = gdf.to_crs(self.meta['crs'].to_dict())
+        with rasterio.open(self.scene_path, 'r') as src:
+            chip_list = sequential_grid.get_tiles_for_threaded_map(src, gdf, usable_threshold=self.usable_threshold, width=self.grid_size, height=self.grid_size)
         self.chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.TRAIN,  "image", self.scene_basename+'_tile_{}_{}',
                                                                               gdf, output_name_template=self.scene_basename+'_tile_{}_{}.tif', 
-                                                                              grid_size=self.grid_size)
+                                                                              grid_size=self.grid_size, chip_list=chip_list)
         self.chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.TRAIN, "mask", self.scene_basename+'_tile_{}_{}',
                                                                                 gdf, output_name_template=self.scene_basename+'_tile_{}_{}_label.tif', 
-                                                                                grid_size=self.grid_size)
+                                                                                grid_size=self.grid_size, chip_list=chip_list)
         return self      
-                
-    def rm_mostly_empty(self, scene_path, label_path):
-        """
-        Removes a grid that is emptier than the usable data threshold and corrects bad no data value to 0.
-        Ignore the User Warning, unsure why it pops up but doesn't seem to impact the array shape. Used because
-        very empty grid chips seem to throw off the model by increasing detections at the edges between good data 
-        and nodata.
-        """
-
-        arr = skio.imread(scene_path)
-        arr[arr < 0] = 0
-        skio.imsave(scene_path, arr)
-        pixel_count = arr.shape[0] * arr.shape[1]
-        nodata_pixel_count = (arr == 0).sum()
-
-        if nodata_pixel_count / pixel_count > self.usable_threshold:
-
-            os.remove(scene_path)
-            os.remove(label_path)
-            print("removed scene and label, {}% bad data".format(self.usable_threshold))
-        else:
-            return scene_path, label_path # need to collect all these tuples and then reassign to self attrs
-                
-    def remove_from_gridded(self):
-                
-        def get_chip_id(string,ignore_string):
-            return string.replace(ignore_string, '')
-
-        good_paths_list_of_tuples = [self.rm_mostly_empty(img,label) for img, label in zip(sorted(self.chip_img_paths, key=lambda x: get_chip_id(x,'.tif')), sorted(self.chip_label_paths, key=lambda x: get_chip_id(x,'_label.tif')))]
-        
-        good_paths_list_of_tuples = [x for x in good_paths_list_of_tuples if x is not None]
-        
-        # extract the tuple elements into their own lists
-        self.chip_img_paths, self.chip_label_paths = map(list, zip(*good_paths_list_of_tuples))
-        return self
-            
             
     def connected_components(self):
         """
@@ -291,46 +231,25 @@ class PreprocessWorkflow():
         saves it with a empty mask.
         """
         for old_label_path in self.chip_label_paths:
-            
+            # for imgs with no instances, creates empty mask
+            # only runs connected comp if there is at least one instance
             arr = skio.imread(old_label_path)
-
             blob_labels = label_prep.connected_components(arr)
+            blob_labels = label_prep.extract_labels(blob_labels)
+            # can divide this up into two functions if I can hold in memory all labels before saving, uint8 decreases size x8 from int64
             chip_id = os.path.basename(old_label_path.split("_label.tif")[0])
             mask_folder = os.path.join(self.TRAIN, chip_id, "mask")
             label_name = chip_id + "_label.tif"
-            # for imgs with no instances, create empty mask
-            if len(np.unique(blob_labels)) == 1:
-                skio.imsave(os.path.join(mask_folder, label_name), blob_labels)
-            else:
-                # only run connected comp if there is at least one instance
-                label_list = label_prep.extract_labels(blob_labels)
-                label_arrs = np.stack(label_list, axis=-1)
-                label_path = os.path.join(mask_folder, label_name)
-                skio.imsave(label_path, label_arrs)
+            label_path = os.path.join(mask_folder, label_name)
+            blob_labels = blob_labels.astype(uint8)
+            
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                skio.imsave(label_path, blob_labels)
+            
         return self
-                
-    def train_test_split(self):
-        """Takes a sample of folder ids and copies them to a test directory
-        from a directory with all folder ids. Each sample folder contains an 
-        images and corresponding masks folder."""
-
-        sample_list = next(os.walk(self.TRAIN))[1]
-        k = round(self.split * len(sample_list))
-        test_list = random.sample(sample_list, k)
-        for test_sample in test_list:
-            os.rename(
-                os.path.join(self.TRAIN, test_sample), os.path.join(self.TEST, test_sample)
-            )
-        train_list = list(set(next(os.walk(self.TRAIN))[1]) - set(next(os.walk(self.TEST))[1]))
-        train_df = pd.DataFrame({"train": train_list})
-        test_df = pd.DataFrame({"test": test_list})
-        train_df.to_csv(os.path.join(self.RESULTS, "train_ids.csv")) # used for reading in trainging and testing in the modeling step
-        test_df.to_csv(os.path.join(self.RESULTS, "test_ids.csv"))
-
 
     def run_single_scene(self):
-
-        start = time.time()
     
         band_list = self.yaml_to_band_index()
         
@@ -344,31 +263,7 @@ class PreprocessWorkflow():
         
         self.grid_images()
         
-        self.remove_from_gridded()
-        
         self.connected_components()
         
         # train test split is done outside of this function to accomodate multiple scenes
-            
-        stop = time.time()
-        
-        print(stop-start, " seconds for single task")
-    
-def get_arr_channel_mean(chip_folder, channel):
-    """
-    Calculate the mean of a given channel across all training samples.
-    """
-
-    means = []
-    train_list = next(os.walk(chip_folder))[1]
-    for i, fid in enumerate(train_list):
-        im_folder = os.path.join(chip_folder, fid, "image")
-        im_path = os.path.join(im_folder, os.listdir(im_folder)[0])
-        arr = skio.imread(im_path)
-        arr = arr.astype(np.float32, copy=False)
-        # added because no data values different for wv2 and landsat, need to exclude from mean
-        nodata_value = 0 # best to do no data masking up front and set bad qa bands to 0 rather than assuming 0 is no data. This is assumed from looking at no data values at corners being equal to 0
-        arr[arr == nodata_value] = np.nan
-        means.append(np.nanmean(arr[:, :, channel]))
-    return np.mean(means)
         

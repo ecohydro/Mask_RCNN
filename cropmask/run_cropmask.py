@@ -57,6 +57,7 @@ def train(model, dataset_dir, subset, config):
     """Train the model."""
     # Training dataset.
     dataset_train = datasets.ImageDataset()
+    dataset.split_imagery(dataset_dir, configs['seed'], .1)
     dataset_train.load_imagery(
         dataset_dir, "train", image_source="landsat", class_name="agriculture"
     )
@@ -174,6 +175,7 @@ def detect(model, dataset_dir, subset, config):
 
     # Read dataset
     dataset = datasets.ImageDataset(3)
+    dataset.split_imagery(configs['dirs']['dataset'], configs['seed'], .1)
     dataset.load_imagery(
         dataset_dir, subset, image_source="landsat", class_name="agriculture", train_test_split_dir=config.RESULTS
     )

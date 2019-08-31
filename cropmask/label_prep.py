@@ -42,10 +42,12 @@ def extract_labels(blob_labels):
     where it is not.
     """
     blob_vals = np.unique(blob_labels)
-    label_list = []
-    for blob_val in blob_vals[blob_vals != 0]:
-        labels_copy = blob_labels.copy()
-        labels_copy[blob_labels != blob_val] = 0
-        labels_copy[blob_labels == blob_val] = 1
-        label_list.append(labels_copy)
-    return label_list
+    if len(blob_vals) != 1:
+        label_list = []
+        for blob_val in blob_vals[blob_vals != 0]:
+            labels_copy = blob_labels.copy()
+            labels_copy[blob_labels != blob_val] = 0
+            labels_copy[blob_labels == blob_val] = 1
+            label_list.append(labels_copy)
+        blob_labels = np.stack(label_list, axis=-1)
+    return blob_labels

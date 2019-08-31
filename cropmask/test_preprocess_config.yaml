@@ -1,13 +1,8 @@
 dirs:
     root: /mnt/cropmaskperm
-    tmp: /home/ryan/work/tmp/ # rasterio write operations to vm disk are an order of magnitude faster than writing to mounted Azure File Store
     dataset: test-landsat # rename this based on the imagery and labels
     scene: scene
-    train: train
-    test: test
-    gridded_imgs: landsat_grid_imgs
-    gridded_labels: landsat_grid_labels
-    results: test-results
+    train: chips
     neg_buffered_labels: neg_buffered_labels
 landsat_bands_to_include:
     - blue: true

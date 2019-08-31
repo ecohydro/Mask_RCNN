@@ -4,6 +4,7 @@ import numpy as np
 import yaml
 import shutil
 import os
+import random
 
 def percentile_rescale(arr):
     """
@@ -48,3 +49,34 @@ def make_dirs(directory_list):
             print("Whole directory list: ", directory_list)
             print("The directory "+d+" exists already. Check it and maybe delete it or change config.")
             raise FileExistsError
+
+                    
+def train_test_split(chip_dir_path, seed, split_proportion):
+    """Takes a directory of gridded images and labels and returns the ids 
+    of the train_validate set and the test set.
+    Each sample folder contains an images and corresponding masks folder."""
+    random.seed(seed)
+    id_list = next(os.walk(chip_dir_path))[1]
+    k = round(split_proportion * len(id_list))
+    test_list = random.sample(id_list, k)
+    train_validate_list = list(set(id_list) - set(test_list))
+    return train_validate_list, test_list
+
+
+def get_arr_channel_mean(chip_folder, channel):
+    """
+    Calculate the mean of a given channel across all training samples.
+    """
+
+    means = []
+    train_list = next(os.walk(chip_folder))[1]
+    for i, fid in enumerate(train_list):
+        im_folder = os.path.join(chip_folder, fid, "image")
+        im_path = os.path.join(im_folder, os.listdir(im_folder)[0])
+        arr = skio.imread(im_path)
+        arr = arr.astype(np.float32, copy=False)
+        # added because no data values different for wv2 and landsat, need to exclude from mean
+        nodata_value = 0 # best to do no data masking up front and set bad qa bands to 0 rather than assuming 0 is no data. This is assumed from looking at no data values at corners being equal to 0
+        arr[arr == nodata_value] = np.nan
+        means.append(np.nanmean(arr[:, :, channel]))
+    return np.mean(means)
