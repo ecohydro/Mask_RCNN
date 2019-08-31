@@ -33,6 +33,8 @@ class LandsatConfig(Config):
         self.IMAGE_META_SIZE = 1 + 3 + 3 + 4 + 1 + self.NUM_CLASSES
         self.CHANNELS_NUM = N
 
+    SEED = 42 # if this changes the inspect config's seed also should change, probably if you are examining the same dataset
+        
     # Path to trained weights file
 
     COCO_WEIGHTS_PATH = "/home/ryan/work/CropMask_RCNN/models/mask_rcnn_coco.h5"
@@ -132,4 +134,4 @@ class LandsatInferenceConfig(LandsatConfig):
     #must be set to what pretrained resnet model expects, see https://github.com/matterport/Mask_RCNN/issues/1291
     RPN_ANCHOR_SCALES = (32, 64, 128, 256, 512)
 
-    RESULTS = "/mnt/azureml-filestore-896933ab-f4fd-42b2-a154-0abb35dfb0b0/results" 
+    RESULTS = "/mnt/cropmaskperm/results" 

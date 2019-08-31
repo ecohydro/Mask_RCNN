@@ -7,16 +7,16 @@ Usage: import the module (see Jupyter notebooks for examples), or run from
        the command line as such:
 
     # Train a new model starting from COCO weights
-    python3 crop_mask.py train --dataset=data/landsat --subset=train --weights=coco
+    python3 run_cropmask.py train --dataset=data/landsat --subset=train --weights=coco
 
     # Train a new model starting from specific weights file
-    python3 crop_mask.py train --dataset=data/landsat --subset=train --weights=/path/to/weights.h5
+    python3 run_cropmask.py train --dataset=data/landsat --subset=train --weights=/path/to/weights.h5
 
     # Resume training a model that you had trained earlier
-    python3 crop_mask.py train --dataset=data/landsat --subset=train --weights=last
+    python3 run_cropmask.py train --dataset=data/landsat --subset=train --weights=last
 
     # Generate submission file
-    python3 crop_mask.py detect --dataset=data/landsat --subset=train --weights=<last or /path/to/weights.h5>
+    python3 run_cropmask.py detect --dataset=data/landsat --subset=train --weights=<last or /path/to/weights.h5>
 """
 
 
@@ -47,6 +47,8 @@ from cropmask.preprocess import PreprocessWorkflow
 from cropmask import datasets
 from cropmask.mrcnn import model as modellib
 from cropmask.mrcnn import visualize
+from cropmask import model_configs
+from cropmask.mrcnn import utils
 import numpy as np
 
 ############################################################
@@ -57,7 +59,7 @@ def train(model, dataset_dir, subset, config):
     """Train the model."""
     # Training dataset.
     dataset_train = datasets.ImageDataset()
-    dataset.split_imagery(dataset_dir, configs['seed'], .1)
+    dataset_train.split_imagery(dataset_dir, config.SEED, .1)
     dataset_train.load_imagery(
         dataset_dir, "train", image_source="landsat", class_name="agriculture"
     )
@@ -65,6 +67,8 @@ def train(model, dataset_dir, subset, config):
 
     # Validation dataset
     dataset_val = datasets.ImageDataset()
+    #this works because we prep the dataset with the same seed exactly one just like dataset train
+    dataset_val.split_imagery(dataset_dir, config.SEED, .1)
     dataset_val.load_imagery(
         dataset_dir, "test", image_source="landsat", class_name="agriculture"
     )
@@ -256,12 +260,6 @@ if __name__ == "__main__":
         metavar="Dataset sub-directory",
         help="Subset of dataset to run prediction on",
     )
-    parser.add_argument(
-        "--model_configs",
-        required=True,
-        metavar="path/to/model_configs.py",
-        help="contains inference and training class configs and paths",
-    )
     args = parser.parse_args()
 
     # Validate arguments
@@ -278,9 +276,9 @@ if __name__ == "__main__":
 
     # Configurations
     if args.command == "train":
-        config = args.model_configs.LandsatConfig(3)
+        config = model_configs.LandsatConfig(3)
     else:
-        config = args.model_configs.LandsatInferenceConfig(3)
+        config = model_configs.LandsatInferenceConfig(3)
     config.display()
 
     # Create model
@@ -295,7 +293,7 @@ if __name__ == "__main__":
     if args.weights is not None:
         # Select weights file to load
         if args.weights.lower() == "coco":
-            weights_path = args.model_configs.COCO_WEIGHTS_PATH
+            weights_path = config.COCO_WEIGHTS_PATH
             # Download weights file
             if not os.path.exists(weights_path):
                 utils.download_trained_weights(weights_path)
