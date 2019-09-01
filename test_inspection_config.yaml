@@ -1,0 +1,9 @@
+dirs:
+    root: /mnt/cropmaskperm/
+    dataset: /mnt/cropmaskperm/test-landsat/chips # rename this based on the imagery and labels
+landsat_bands_to_include:
+    - blue: true
+    - green: true
+    - red: true
+    - near-IR : false
+seed: 42

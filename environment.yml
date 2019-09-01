@@ -41,7 +41,9 @@ dependencies:
 
   # Other stuff
   - yaml
+  - python-graphiz
 
   - pip:
       - imgaug # for mrcnn
       - rioxarray>=0.0.9
+      - us

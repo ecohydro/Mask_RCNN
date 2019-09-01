@@ -17,3 +17,17 @@ lsru_order.yaml
 dist
 app
 azure_configs_template.yaml
+.pytest_cache
+src/ # this is built from installing packages from github with conda
+azure_configs.yaml
+# Data files and directories common in repo root
+data/
+datasets/
+logs/
+*.h5
+results/
+temp/
+test/
+aml_config/
+models/*.h5
+
