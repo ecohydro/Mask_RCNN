@@ -130,7 +130,7 @@ class LandsatInferenceConfig(LandsatConfig):
     IMAGE_RESIZE_MODE = "pad64"
     # Non-max suppression threshold to filter RPN proposals.
     # You can increase this during training to generate more propsals.
-    RPN_NMS_THRESHOLD = 0.7
+    RPN_NMS_THRESHOLD = 0.3
     #must be set to what pretrained resnet model expects, see https://github.com/matterport/Mask_RCNN/issues/1291
     RPN_ANCHOR_SCALES = (32, 64, 128, 256, 512)
 
