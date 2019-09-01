@@ -7,7 +7,8 @@ PATH_VM_ID=./terraform/.vm-id
 PATH_VM_IP=./terraform/.vm-ip
 PATH_VM_ID_GPU=./terraform/.vm-id-gpu
 PATH_VM_IP_GPU=./terraform/.vm-ip-gpu
-
+PATH_VM_ID_ANNOTATION=./coco-annotator/.vm-id-annotation
+PATH_VM_IP_ANNOTATION=./coco-annotator/.vm-ip-annotation
 
 ##### You should not have to touch stuff below this line
 
@@ -54,3 +55,23 @@ status-gpu:
 ssh-gpu:
 		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN_GPU}
 
+# annotation commands
+
+VM_ID_ANNOTATION=$(shell cat ${PATH_VM_ID_ANNOTATION}) # Azure resource ID
+VM_CONN_ANNOTATION=$(shell cat ${PATH_VM_IP_ANNOTATION}) # user@IP
+VM_IP_ANNOTATION=$(shell cat ${PATH_VM_IP_ANNOTATION}| cut -c6-)
+
+# start/stop instance
+stop-annotation:
+		az vm deallocate --ids ${VM_ID_ANNOTATION}
+start-annotation:
+		az vm start --ids ${VM_ID_ANNOTATION}
+status-annotation:
+		az vm show -d --ids ${VM_ID_ANNOTATION} | grep "powerState" | cut -d\" -f4
+
+# ssh into machine and forward jupyter port
+ssh-annotation:
+		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN_ANNOTATION}
+
+annotate:
+		x-www-browser http://${VM_IP_ANNOTATION}:5000/
