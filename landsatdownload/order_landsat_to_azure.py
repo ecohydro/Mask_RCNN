@@ -1,4 +1,4 @@
-from cropmask.download import download_utils as du
+import download_utils as du
 import datetime
 import yaml
 import time
@@ -24,33 +24,33 @@ def run(config_path):
         configs = yaml.safe_load(f)
 
     bbox = du.get_bbox_from_wbd(
-        configs["download"]["wbd_gdb_path"],
-        configs["download"]["huc_level"],
-        str(configs["download"]["huc_id"])
+        configs["wbd_gdb_path"],
+        configs["huc_level"],
+        str(configs["huc_id"])
     )
 
     scene_list = du.get_scene_list(
-        collection=configs["download"]["collection"],
+        collection=configs["collection"],
         bbox=bbox,
         begin=datetime.datetime(
-            configs["download"]["year_start"],
-            configs["download"]["month_start"],
-            configs["download"]["day_start"],
+            configs["year_start"],
+            configs["month_start"],
+            configs["day_start"],
         ),
         end=datetime.datetime(
-            configs["download"]["year_end"],
-            configs["download"]["month_end"],
-            configs["download"]["day_end"],
+            configs["year_end"],
+            configs["month_end"],
+            configs["day_end"],
         ),
-        max_results=configs["download"]["max_results"],
-        max_cloud_cover=configs["download"]["max_cloud_cover"],
+        max_results=configs["max_results"],
+        max_cloud_cover=configs["max_cloud_cover"],
     )
 
-    pathrow_list = configs["download"]["path_row_list"]
+    pathrow_list = configs["path_row_list"]
 
     scene_list = du.filter_scenes_by_path_row(scene_list, pathrow_list)
 
-    product_list = configs["download"]["product_list"]
+    product_list = configs["product_list"]
 
     order = du.submit_order(scene_list, product_list)
     print("Order status: " + order.status)

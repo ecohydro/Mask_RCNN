@@ -14,7 +14,7 @@ vm_name     = "cropmask-dev"
 admin_user = "ryan"
 
 # Type of VM to deploy (default: Standard_NC6 - GPU instance)
-vm_type = "Standard_NC6s_v2"
+vm_type = "Standard_NC6"
 
 # Name of your repo
 repo_name = "CropMask_RCNN"

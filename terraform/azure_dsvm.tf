@@ -190,15 +190,15 @@ resource "null_resource" "ds" {
   }
 
   provisioner "local-exec" {
-    command = "echo ${azurerm_virtual_machine.ds.id} > .vm-id"
+    command = "echo ${azurerm_virtual_machine.ds.id} > .vm-id-gpu"
   }
 
   provisioner "local-exec" {
-    command = "echo ${var.admin_user}@${azurerm_public_ip.ds.ip_address} > .vm-ip"
+    command = "echo ${var.admin_user}@${azurerm_public_ip.ds.ip_address} > .vm-ip-gpu"
   }
 
   provisioner "local-exec" {
-    command     = "make syncup"
+    command     = "make syncup-gpu"
     working_dir = "../"
   }
 
@@ -219,7 +219,6 @@ resource "null_resource" "ds" {
       "echo \"containerName $CONTAINER_NAME\" >> /home/${var.admin_user}/work/blobfuse.cfg",
       "bash /home/${var.admin_user}/work/${var.repo_name}/bash-scripts/mount-fileshare.sh $STORAGE_NAME $FILESHARE_NAME $STORAGE_KEY",
       "bash /home/${var.admin_user}/work/${var.repo_name}/bash-scripts/mount-blobfuse.sh",
-      "bash /home/${var.admin_user}/work/${var.repo_name}/bash-scripts/setup_env.sh ${var.repo_name}",
     ]
 
     connection {

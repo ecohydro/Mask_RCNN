@@ -164,9 +164,9 @@ def azure_download_order(order, configs):
     while order.is_complete == False:
         time.sleep(600)
     order.download_all_complete_azure(
-        configs["storage"]["container"],
-        configs["storage"]["region_name"],
-        configs["storage"]["storage_name"],
-        configs["storage"]["storage_key"],
+        configs["container"],
+        configs["region_name"],
+        configs["storage_name"],
+        configs["storage_key"],
     )
     print("Finished downloading order to azure")

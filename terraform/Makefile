@@ -5,6 +5,9 @@ REMOTE_DIR=~/work
 LOCAL_DIR=.
 PATH_VM_ID=./terraform/.vm-id
 PATH_VM_IP=./terraform/.vm-ip
+PATH_VM_ID_GPU=./terraform/.vm-id-gpu
+PATH_VM_IP_GPU=./terraform/.vm-ip-gpu
+
 
 ##### You should not have to touch stuff below this line
 
@@ -30,3 +33,24 @@ status:
 # ssh into machine and forward jupyter port
 ssh:
 	ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN}
+
+VM_ID_GPU=$(shell cat ${PATH_VM_ID_GPU}) # Azure resource ID
+VM_CONN_GPU=$(shell cat ${PATH_VM_IP_GPU}) # user@IP
+
+# gpu commands
+syncup-gpu:
+		rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.gitignore ${LOCAL_DIR} $(shell echo ${VM_CONN_GPU}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
+syncdown-gpu:
+		rsync -e "ssh -i ${PATH_SSH_KEY}" -avz --exclude=".git/" --exclude-from=.gitignore $(shell echo ${VM_CONN_GPU}:${REMOTE_DIR}/${CURRENT_DIR}/ | tr -d '[:space:]') ${LOCAL_DIR}
+# start/stop instance
+stop-gpu:
+		az vm deallocate --ids ${VM_ID_GPU}
+start-gpu:
+		az vm start --ids ${VM_ID_GPU}
+status-gpu:
+		az vm show -d --ids ${VM_ID_GPU} | grep "powerState" | cut -d\" -f4
+
+# ssh into machine and forward jupyter port
+ssh-gpu:
+		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN_GPU}
+

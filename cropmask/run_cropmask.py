@@ -6,17 +6,17 @@ https://github.com/matterport/Mask_RCNN/blob/master/samples/nucleus/nucleus.py
 Usage: import the module (see Jupyter notebooks for examples), or run from
        the command line as such:
 
-    # Train a new model starting from ImageNet weights
-    python3 crop_mask.py train --dataset=data/wv2 --subset=train --weights=imagenet
+    # Train a new model starting from COCO weights
+    python3 crop_mask.py train --dataset=data/landsat --subset=train --weights=coco
 
     # Train a new model starting from specific weights file
-    python3 crop_mask.py train --dataset=data/wv2 --subset=train --weights=/path/to/weights.h5
+    python3 crop_mask.py train --dataset=data/landsat --subset=train --weights=/path/to/weights.h5
 
     # Resume training a model that you had trained earlier
-    python3 crop_mask.py train --dataset=data/wv2 --subset=train --weights=last
+    python3 crop_mask.py train --dataset=data/landsat --subset=train --weights=last
 
     # Generate submission file
-    python3 crop_mask.py detect --dataset=data/wv2 --subset=train --weights=<last or /path/to/weights.h5>
+    python3 crop_mask.py detect --dataset=data/landsat --subset=train --weights=<last or /path/to/weights.h5>
 """
 
 
@@ -44,27 +44,14 @@ from imgaug import augmenters as iaa
 
 # Import cropmask and mrcnn
 from cropmask.preprocess import PreprocessWorkflow
-from cropmask import datasets, model_configs
+from cropmask import datasets
 from cropmask.mrcnn import model as modellib
 from cropmask.mrcnn import visualize
 import numpy as np
 
-# Path to trained weights file
-ROOT_DIR = "/home/ryan/work/CropMask_RCNN"
-COCO_WEIGHTS_PATH = os.path.join(ROOT_DIR, "models/mask_rcnn_coco.h5")
-
-# Directory to save logs and model checkpoints, if not provided
-# through the command line argument --logs
-DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
-
-#contains paths as instance attributes
-wflow = PreprocessWorkflow(os.path.join(ROOT_DIR,"cropmask/preprocess_config.yaml"))
-
-
 ############################################################
 #  Training
 ############################################################
-
 
 def train(model, dataset_dir, subset, config):
     """Train the model."""
@@ -174,21 +161,21 @@ def mask_to_rle(image_id, mask, scores):
 ############################################################
 
 
-def detect(model, dataset_dir, subset, wflow):
+def detect(model, dataset_dir, subset, config):
     """Run detection on images in the given directory."""
     print("Running on {}".format(dataset_dir))
 
     # Create directory
-    if not os.path.exists(wflow.RESULTS):
-        os.makedirs(wflow.RESULTS)
+    if not os.path.exists(config.RESULTS):
+        os.makedirs(config.RESULTS)
     submit_dir = "submit_{:%Y%m%dT%H%M%S}".format(datetime.datetime.now())
-    submit_dir = os.path.join(wflow.RESULTS, submit_dir)
+    submit_dir = os.path.join(config.RESULTS, submit_dir)
     os.makedirs(submit_dir)
 
     # Read dataset
     dataset = datasets.ImageDataset(3)
     dataset.load_imagery(
-        dataset_dir, subset, image_source="landsat", class_name="agriculture", train_test_split_dir=wflow.RESULTS
+        dataset_dir, subset, image_source="landsat", class_name="agriculture", train_test_split_dir=config.RESULTS
     )
     dataset.prepare()
     # Load over images
@@ -240,11 +227,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "command",
         metavar="<command>",
-        help="'preprocess' or 'train' or 'detect. preprocess takes no arguments.'",
+        help="'train' or 'detect'",
     )
     parser.add_argument(
         "--dataset",
-        required=False,
+        required=True,
         metavar="/path/to/dataset/",
         help="Root directory of the dataset",
     )
@@ -267,83 +254,83 @@ if __name__ == "__main__":
         metavar="Dataset sub-directory",
         help="Subset of dataset to run prediction on",
     )
+    parser.add_argument(
+        "--model_configs",
+        required=True,
+        metavar="path/to/model_confgis.py",
+        help="contains inference and training class configs and paths",
+    )
     args = parser.parse_args()
 
-    if args.command == "preprocess":
-        wflow = PreprocessWorkflow()
-        wflow.run_single_scene()
+    # Validate arguments
+    if args.command == "train":
+        assert args.dataset, "Argument --dataset is required for training"
+    elif args.command == "detect":
+        assert args.subset, "Provide --subset to run prediction on"
+
+    print("Weights: ", args.weights)
+    print("Dataset: ", args.dataset)
+    if args.subset:
+        print("Subset: ", args.subset)
+    print("Logs: ", args.logs)
+
+    # Configurations
+    if args.command == "train":
+        config = args.model_configs.LandsatConfig(3)
     else:
-        # Validate arguments
-        if args.command == "train":
-            assert args.dataset, "Argument --dataset is required for training"
-        elif args.command == "detect":
-            assert args.subset, "Provide --subset to run prediction on"
+        config = args.model_configs.LandsatInferenceConfig(3)
+    config.display()
 
-        print("Weights: ", args.weights)
-        print("Dataset: ", args.dataset)
-        if args.subset:
-            print("Subset: ", args.subset)
-        print("Logs: ", args.logs)
-
-        # Configurations
-        if args.command == "train":
-            config = model_configs.LandsatConfig(3)
+    # Create model
+    if args.command == "train":
+        model = modellib.MaskRCNN(
+            mode="training", config=config, model_dir=args.logs
+        )
+    else:
+        model = modellib.MaskRCNN(
+            mode="inference", config=config, model_dir=args.logs
+        )
+    if args.weights is not None:
+        # Select weights file to load
+        if args.weights.lower() == "coco":
+            weights_path = args.model_configs.COCO_WEIGHTS_PATH
+            # Download weights file
+            if not os.path.exists(weights_path):
+                utils.download_trained_weights(weights_path)
+        elif args.weights.lower() == "last":
+            # Find last trained weights
+            weights_path = model.find_last()
+        elif args.weights.lower() == "imagenet":
+            # Start from ImageNet trained weights
+            weights_path = model.get_imagenet_weights()
         else:
-            config = model_configs.LandsatInferenceConfig(3)
-        config.display()
+            weights_path = args.weights
 
-        # Create model
-        if args.command == "train":
-            model = modellib.MaskRCNN(
-                mode="training", config=config, model_dir=args.logs
+        # Load weights
+        print("Loading weights ", weights_path)
+        if args.weights.lower() == "coco":
+            # Exclude the last layers because they require a matching
+            # number of classes
+            model.load_weights(
+                weights_path,
+                by_name=True,
+                exclude=[
+                    "mrcnn_class_logits",
+                    "mrcnn_bbox_fc",
+                    "mrcnn_bbox",
+                    "mrcnn_mask",
+                ],
             )
         else:
-            model = modellib.MaskRCNN(
-                mode="inference", config=config, model_dir=args.logs
-            )
-        if args.weights is not None:
-            # Select weights file to load
-            if args.weights.lower() == "coco":
-                weights_path = COCO_WEIGHTS_PATH
-                # Download weights file
-                if not os.path.exists(weights_path):
-                    utils.download_trained_weights(weights_path)
-            elif args.weights.lower() == "last":
-                # Find last trained weights
-                weights_path = model.find_last()
-            elif args.weights.lower() == "imagenet":
-                # Start from ImageNet trained weights
-                weights_path = model.get_imagenet_weights()
-            else:
-                weights_path = args.weights
+            model.load_weights(weights_path, by_name=True)
 
-            # Load weights
-            print("Loading weights ", weights_path)
-            if args.weights.lower() == "coco":
-                # Exclude the last layers because they require a matching
-                # number of classes
-                model.load_weights(
-                    weights_path,
-                    by_name=True,
-                    exclude=[
-                        "mrcnn_class_logits",
-                        "mrcnn_bbox_fc",
-                        "mrcnn_bbox",
-                        "mrcnn_mask",
-                    ],
-                )
-            else:
-                model.load_weights(weights_path, by_name=True)
-
-        # Train or evaluate
-        if args.command == "train":
-            os.chdir(ROOT_DIR)
-            print(os.getcwd(), "current working dir")
-            train(model, args.dataset, args.subset, config)
-        elif args.command == "detect":
-            detect(model, args.dataset, args.subset, wflow)
-        else:
-            print(
-                "'{}' is not recognized. "
-                "Use 'train' or 'detect'".format(args.command)
-            )
+    # Train or evaluate
+    if args.command == "train":
+        train(model, args.dataset, args.subset, config)
+    elif args.command == "detect":
+        detect(model, args.dataset, args.subset, config)
+    else:
+        print(
+            "'{}' is not recognized. "
+            "Use 'train' or 'detect'".format(args.command)
+        )
