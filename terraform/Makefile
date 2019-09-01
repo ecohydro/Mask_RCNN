@@ -19,7 +19,7 @@ CURRENT_DIR=$(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
 # sync code disabled strict key checking for syncup for terraform build
 syncup:
-	rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.gitignore ${LOCAL_DIR} $(shell echo ${VM_CONN}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
+	rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.amlignore ${LOCAL_DIR} $(shell echo ${VM_CONN}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
 syncdown:
 	rsync -e "ssh -i ${PATH_SSH_KEY}" -avz --exclude=".git/" --exclude-from=.gitignore $(shell echo ${VM_CONN}:${REMOTE_DIR}/${CURRENT_DIR}/ | tr -d '[:space:]') ${LOCAL_DIR}
 # start/stop instance
@@ -39,7 +39,7 @@ VM_CONN_GPU=$(shell cat ${PATH_VM_IP_GPU}) # user@IP
 
 # gpu commands
 syncup-gpu:
-		rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.gitignore ${LOCAL_DIR} $(shell echo ${VM_CONN_GPU}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
+		rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.amlignore ${LOCAL_DIR} $(shell echo ${VM_CONN_GPU}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
 syncdown-gpu:
 		rsync -e "ssh -i ${PATH_SSH_KEY}" -avz --exclude=".git/" --exclude-from=.gitignore $(shell echo ${VM_CONN_GPU}:${REMOTE_DIR}/${CURRENT_DIR}/ | tr -d '[:space:]') ${LOCAL_DIR}
 # start/stop instance
