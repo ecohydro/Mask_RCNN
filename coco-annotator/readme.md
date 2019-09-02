@@ -16,12 +16,15 @@ after `terraform apply`
 
 ```
 git clone https://github.com/ecohydro/coco-annotator
+sudo apt-get update
+sudo apt-get install docker.io
 sudo curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
-newgrp docker
-cd coco-annotator && docker-compose up", # starts server at port 5000
 # get the mount script from azure portal by clicking the Connect to file share button
 bash mnt.sh # for mounting permanently after stopping and starting. point to ~/coco-annotator/datasets
+# follow these instructions https://docs.docker.com/install/linux/linux-postinstall/
+cd coco-annotator && docker-compose up", # starts server at port 5000
+
 
 ```
 
