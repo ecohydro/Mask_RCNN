@@ -8,7 +8,7 @@ import rasterio
 import us
 from numpy import uint8
 from cropmask.label_prep import rio_bbox_to_polygon
-from cropmask.misc import parse_yaml, make_dirs
+from cropmask.misc import parse_yaml, make_dirs, tif_to_jpeg
 from cropmask import sequential_grid, label_prep
 from cropmask import io_utils 
 
@@ -246,6 +246,35 @@ class PreprocessWorkflow():
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 skio.imsave(label_path, blob_labels)
+            
+        return self
+    
+    
+    def imgs_to_jpegs(self):
+        """
+        Extracts individual instances into their own tif files. Saves them
+        in each folder ID in train folder. If an image has no instances,
+        saves it with a empty mask.
+        """
+        for tif_path in self.chip_img_paths:
+            # for imgs with no instances, creates empty mask
+            # only runs connected comp if there is at least one instance
+            jpeg_path = os.path.splitext(tif_path)[0] + ".jpeg"
+            tif_to_jpeg(tif_path, jpeg_path)
+            
+        return self
+    
+    def labels_to_jpegs(self):
+        """
+        Extracts individual instances into their own tif files. Saves them
+        in each folder ID in train folder. If an image has no instances,
+        saves it with a empty mask.
+        """
+        for tif_path in self.chip_label_paths:
+            # for imgs with no instances, creates empty mask
+            # only runs connected comp if there is at least one instance
+            jpeg_path = os.path.splitext(tif_path)[0] + ".jpeg"
+            tif_to_jpeg(tif_path, jpeg_path)
             
         return self
 

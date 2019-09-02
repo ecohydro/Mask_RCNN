@@ -1,5 +1,8 @@
 ### currently random, useful functions
-from skimage import exposure
+from PIL import Image
+from skimage import img_as_ubyte, exposure
+from skimage.io import imread
+from rasterio.plot import reshape_as_image
 import numpy as np
 import yaml
 import shutil
@@ -80,3 +83,30 @@ def get_arr_channel_mean(chip_folder, channel):
         arr[arr == nodata_value] = np.nan
         means.append(np.nanmean(arr[:, :, channel]))
     return np.mean(means)
+
+
+def img_to_jpeg(tif_path, jpeg_path):
+    """
+    Converts processed tif chip images into pngs
+    """
+    arr = imread(tif_path)
+    
+    arr = np.dstack([arr[:,:,2],arr[:,:,1],arr[:,:,0]])
+
+    img = Image.fromarray(img_as_ubyte(exposure.equalize_adapthist(arr)), mode='RGB')
+    
+    img.save(jpeg_path, format='jpeg')
+    
+    
+def label_to_jpeg(tif_path, jpeg_path):
+    """
+    Converts processed tif chip labels into pngs
+    """
+    arr = imread(tif_path)
+    
+    if len(arr.shape) > 2:
+        arr = np.any(arr, axis=2)
+
+    img = Image.fromarray(img_as_ubyte(arr))
+    
+    img.save(jpeg_path, format='jpeg')
