@@ -12,4 +12,4 @@ Next, login to the portal and create a permanent storage account under it's own 
 
 To start the vm, run `terraform apply`. You can use `make stop-annotation` and other make commands to control the serve instance (see the Makefile).  Once you run terraform apply, docker compose should be installed and the server should be running, but the first time you will need to ssh in with `make ssh-annotation` and mount your storage using the connection script provided through the Azure portal. Create all datasets in an annotation folder in your mounted file storage so that it is not coupled to the vm and can't be accidentally deleted with terraform destroy.
 
-See the [COCO Annotator page and wiki]() for an overview of the tool. I'm currently testing it out but it looks excellent. I selected it because it's free, supports free hand drawing, magic wand, and .h5 models for assisted annotation.
+See the [COCO Annotator page and wiki](https://github.com/jsbroks/coco-annotator/wiki) for an overview of the tool. I'm currently testing it out but it looks excellent. I selected it because it's free, supports free hand drawing, magic wand, and .h5 models for assisted annotation.
