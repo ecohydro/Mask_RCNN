@@ -104,12 +104,7 @@ resource "azurerm_virtual_machine" "ds" {
   provisioner "remote-exec" {
     inline = [
       "git clone https://github.com/ecohydro/coco-annotator",
-      "sudo curl -L "https://github.com/docker/compose/releases/download/1.24.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose",
-      "sudo chmod +x /usr/local/bin/docker-compose",
-      "newgrp docker",
-      "cd coco-annotator && docker-compose up", # starts server at port 5000
-      "sudo mkdir -p /permmnt/cropmaskperm" # for mounting permanently after stopping and starting. use connect button in portal to get sh command to mount
-    ]
+      ]
 
     connection {
       type        = "ssh"
