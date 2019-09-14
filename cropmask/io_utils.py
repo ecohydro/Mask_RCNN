@@ -31,8 +31,10 @@ def read_bands_lsr(path_list):
     
     Args:
         path_list (str): Paths of form 
-            .../LT05_L1TP_032031_20050406_20160912_01_T1_sr_band5.tif. 
-            in a list
+            .../LT05_L1TP_032031_20050406_20160912_01_T1_sr_band5.tif or 
+            ARD format
+            LT05_CU_012007_20050515_20190108_C01_V01_SRB5.tif
+            in a list.
 
     Returns:
         bool: Returns an xarray data array

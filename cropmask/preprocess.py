@@ -8,7 +8,7 @@ import rasterio
 import us
 from numpy import uint8
 from cropmask.label_prep import rio_bbox_to_polygon
-from cropmask.misc import parse_yaml, make_dirs, tif_to_jpeg
+from cropmask.misc import parse_yaml, make_dirs, img_to_png, label_to_png
 from cropmask import sequential_grid, label_prep
 from cropmask import io_utils 
 
@@ -105,7 +105,7 @@ class PreprocessWorkflow():
         # Load image
         product_list = os.listdir(self.scene_dir_path)
         # below works because only products that are bands have a int in the 5th to last position
-        filtered_product_list = [band for band in product_list if band[-5] in band_list and 'band' in band]
+        filtered_product_list = [band for band in product_list if band[-5] in band_list and ('band' in band or "SRB" in band)]
         filtered_product_list = sorted(filtered_product_list)
         filtered_product_paths = [os.path.join(self.scene_dir_path, fname) for fname in filtered_product_list]
         return filtered_product_paths
@@ -230,13 +230,13 @@ class PreprocessWorkflow():
         in each folder ID in train folder. If an image has no instances,
         saves it with a empty mask.
         """
+        new_label_paths = []
         for old_label_path in self.chip_label_paths:
             # for imgs with no instances, creates empty mask
             # only runs connected comp if there is at least one instance
             arr = skio.imread(old_label_path)
             blob_labels = label_prep.connected_components(arr)
             blob_labels = label_prep.extract_labels(blob_labels)
-            # can divide this up into two functions if I can hold in memory all labels before saving, uint8 decreases size x8 from int64
             chip_id = os.path.basename(old_label_path.split("_label.tif")[0])
             mask_folder = os.path.join(self.TRAIN, chip_id, "mask")
             label_name = chip_id + "_label.tif"
@@ -247,10 +247,14 @@ class PreprocessWorkflow():
                 warnings.simplefilter("ignore")
                 skio.imsave(label_path, blob_labels)
             
+            new_label_paths.append(label_path)
+            
+        self.chip_label_paths = new_label_paths
+            
         return self
     
     
-    def imgs_to_jpegs(self):
+    def imgs_to_pngs(self):
         """
         Extracts individual instances into their own tif files. Saves them
         in each folder ID in train folder. If an image has no instances,
@@ -259,12 +263,12 @@ class PreprocessWorkflow():
         for tif_path in self.chip_img_paths:
             # for imgs with no instances, creates empty mask
             # only runs connected comp if there is at least one instance
-            jpeg_path = os.path.splitext(tif_path)[0] + ".jpeg"
-            tif_to_jpeg(tif_path, jpeg_path)
+            jpeg_path = os.path.splitext(tif_path)[0] + ".png"
+            img_to_png(tif_path, jpeg_path)
             
         return self
     
-    def labels_to_jpegs(self):
+    def labels_to_pngs(self):
         """
         Extracts individual instances into their own tif files. Saves them
         in each folder ID in train folder. If an image has no instances,
@@ -273,8 +277,8 @@ class PreprocessWorkflow():
         for tif_path in self.chip_label_paths:
             # for imgs with no instances, creates empty mask
             # only runs connected comp if there is at least one instance
-            jpeg_path = os.path.splitext(tif_path)[0] + ".jpeg"
-            tif_to_jpeg(tif_path, jpeg_path)
+            jpeg_path = os.path.splitext(tif_path)[0] + ".png"
+            label_to_png(tif_path, jpeg_path)
             
         return self
 

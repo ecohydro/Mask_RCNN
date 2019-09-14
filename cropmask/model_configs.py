@@ -41,8 +41,8 @@ class LandsatConfig(Config):
 
     LEARNING_RATE = 0.0003
 
-    # Image mean from inspect_data ipynb (preprocess.py differs for some reason, only slightly by 1os of digits or 1s of digits)
-    MEAN_PIXEL = np.array([711.1, 995.51, 1097.56])
+    # Image mean from inspect_data ipynb stats
+    MEAN_PIXEL = np.array([569.32, 851.37, 894.73])
 
     # Give the configuration a recognizable name
     NAME = "landsat-512-cp"
@@ -50,7 +50,7 @@ class LandsatConfig(Config):
     # Batch size is 4 (GPUs * images/GPU).
     # Keras 2.1.6 works for multi-gpu but takes longer than single GPU currently
     GPU_COUNT = 1
-    IMAGES_PER_GPU = 3
+    IMAGES_PER_GPU = 2
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 1  # background + ag
@@ -108,7 +108,7 @@ class LandsatConfig(Config):
 
     # If enabled, resizes instance masks to a smaller size to reduce
     # memory load. Recommended when using high-resolution images.
-    USE_MINI_MASK = False
+    USE_MINI_MASK = True
     MINI_MASK_SHAPE = (28, 28)  # (height, width) of the mini-mask
 
     # Loss weights for more precise optimization. It has been suggested that mrcnn_mask_loss should be weighted higher

@@ -1,13 +1,14 @@
 ### currently random, useful functions
 from PIL import Image
 from skimage import img_as_ubyte, exposure
-from skimage.io import imread
+from skimage.io import imread, imsave
 from rasterio.plot import reshape_as_image
 import numpy as np
 import yaml
 import shutil
 import os
 import random
+import warnings
 
 def percentile_rescale(arr):
     """
@@ -66,26 +67,7 @@ def train_test_split(chip_dir_path, seed, split_proportion):
     return train_validate_list, test_list
 
 
-def get_arr_channel_mean(chip_folder, channel):
-    """
-    Calculate the mean of a given channel across all training samples.
-    """
-
-    means = []
-    train_list = next(os.walk(chip_folder))[1]
-    for i, fid in enumerate(train_list):
-        im_folder = os.path.join(chip_folder, fid, "image")
-        im_path = os.path.join(im_folder, os.listdir(im_folder)[0])
-        arr = skio.imread(im_path)
-        arr = arr.astype(np.float32, copy=False)
-        # added because no data values different for wv2 and landsat, need to exclude from mean
-        nodata_value = 0 # best to do no data masking up front and set bad qa bands to 0 rather than assuming 0 is no data. This is assumed from looking at no data values at corners being equal to 0
-        arr[arr == nodata_value] = np.nan
-        means.append(np.nanmean(arr[:, :, channel]))
-    return np.mean(means)
-
-
-def img_to_jpeg(tif_path, jpeg_path):
+def img_to_png(tif_path, png_path):
     """
     Converts processed tif chip images into pngs
     """
@@ -93,12 +75,10 @@ def img_to_jpeg(tif_path, jpeg_path):
     
     arr = np.dstack([arr[:,:,2],arr[:,:,1],arr[:,:,0]])
 
-    img = Image.fromarray(img_as_ubyte(exposure.equalize_adapthist(arr)), mode='RGB')
-    
-    img.save(jpeg_path, format='jpeg')
+    imsave(png_path, img_as_ubyte(exposure.equalize_adapthist(arr)))
     
     
-def label_to_jpeg(tif_path, jpeg_path):
+def label_to_png(tif_path, png_path):
     """
     Converts processed tif chip labels into pngs
     """
@@ -106,7 +86,7 @@ def label_to_jpeg(tif_path, jpeg_path):
     
     if len(arr.shape) > 2:
         arr = np.any(arr, axis=2)
-
-    img = Image.fromarray(img_as_ubyte(arr))
-    
-    img.save(jpeg_path, format='jpeg')
+                
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        imsave(png_path, img_as_ubyte(1*arr))
