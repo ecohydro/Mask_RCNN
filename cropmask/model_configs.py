@@ -41,6 +41,8 @@ class LandsatConfig(Config):
 
     LEARNING_RATE = 0.0003
 
+    TRAIN_BN = True
+
     # Image mean from inspect_data ipynb stats
     MEAN_PIXEL = np.array([569.32, 851.37, 894.73])
 
@@ -48,9 +50,8 @@ class LandsatConfig(Config):
     NAME = "landsat-512-cp"
 
     # Batch size is 4 (GPUs * images/GPU).
-    # Keras 2.1.6 works for multi-gpu but takes longer than single GPU currently
-    GPU_COUNT = 1
-    IMAGES_PER_GPU = 2
+    GPU_COUNT = 2
+    IMAGES_PER_GPU = 3
 
     # Number of classes (including background)
     NUM_CLASSES = 1 + 1  # background + ag
@@ -87,7 +88,7 @@ class LandsatConfig(Config):
     RPN_TRAIN_ANCHORS_PER_IMAGE = 128  # 64
 
     # Unsure what best step size is but nucleus used 100
-    STEPS_PER_EPOCH = 100
+    STEPS_PER_EPOCH = 50
 
     # reduces the max number of field instances
     # MAX_GT_INSTANCES = 29 # for smallholder determined using inspect_crop_data.ipynb
