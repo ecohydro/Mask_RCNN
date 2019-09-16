@@ -7,8 +7,8 @@ PATH_VM_ID=./terraform/.vm-id
 PATH_VM_IP=./terraform/.vm-ip
 PATH_VM_ID_GPU=./terraform/.vm-id-gpu
 PATH_VM_IP_GPU=./terraform/.vm-ip-gpu
-PATH_VM_ID_ANNOTATION=./coco-annotator/.vm-id-annotation
-PATH_VM_IP_ANNOTATION=./coco-annotator/.vm-ip-annotation
+PATH_VM_ID_MGPU=./terraform/.vm-id-mgpu
+PATH_VM_IP_MGPU=./terraform/.vm-ip-mgpu
 
 ##### You should not have to touch stuff below this line
 
@@ -20,7 +20,7 @@ CURRENT_DIR=$(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
 # sync code disabled strict key checking for syncup for terraform build
 syncup:
-	rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.amlignore ${LOCAL_DIR} $(shell echo ${VM_CONN}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
+	rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.gitignore ${LOCAL_DIR} $(shell echo ${VM_CONN}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
 syncdown:
 	rsync -e "ssh -i ${PATH_SSH_KEY}" -avz --exclude=".git/" --exclude-from=.gitignore $(shell echo ${VM_CONN}:${REMOTE_DIR}/${CURRENT_DIR}/ | tr -d '[:space:]') ${LOCAL_DIR}
 # start/stop instance
@@ -40,7 +40,7 @@ VM_CONN_GPU=$(shell cat ${PATH_VM_IP_GPU}) # user@IP
 
 # gpu commands
 syncup-gpu:
-		rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.amlignore ${LOCAL_DIR} $(shell echo ${VM_CONN_GPU}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
+		rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.gitignore ${LOCAL_DIR} $(shell echo ${VM_CONN_GPU}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
 syncdown-gpu:
 		rsync -e "ssh -i ${PATH_SSH_KEY}" -avz --exclude=".git/" --exclude-from=.gitignore $(shell echo ${VM_CONN_GPU}:${REMOTE_DIR}/${CURRENT_DIR}/ | tr -d '[:space:]') ${LOCAL_DIR}
 # start/stop instance
@@ -55,23 +55,25 @@ status-gpu:
 ssh-gpu:
 		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN_GPU}
 
-# annotation commands
+VM_ID_MGPU=$(shell cat ${PATH_VM_ID_MGPU}) # Azure resource ID
+VM_CONN_MGPU=$(shell cat ${PATH_VM_IP_MGPU}) # user@IP
 
-VM_ID_ANNOTATION=$(shell cat ${PATH_VM_ID_ANNOTATION}) # Azure resource ID
-VM_CONN_ANNOTATION=$(shell cat ${PATH_VM_IP_ANNOTATION}) # user@IP
-VM_IP_ANNOTATION=$(shell cat ${PATH_VM_IP_ANNOTATION}| cut -c6-)
+# gpu commands
+syncup-mgpu:
+		rsync -e "ssh -i ${PATH_SSH_KEY} -o StrictHostKeyChecking=no" -avz --exclude=".git/" --exclude-from=.gitignore ${LOCAL_DIR} $(shell echo ${VM_CONN_MGPU}:${REMOTE_DIR}/${CURRENT_DIR} | tr -d '[:space:]')
 
+syncdown-mgpu:
+		rsync -e "ssh -i ${PATH_SSH_KEY}" -avz --exclude=".git/" --exclude-from=.gitignore $(shell echo ${VM_CONN_MGPU}:${REMOTE_DIR}/${CURRENT_DIR}/ | tr -d '[:space:]') ${LOCAL_DIR}
 # start/stop instance
-stop-annotation:
-		az vm deallocate --ids ${VM_ID_ANNOTATION}
-start-annotation:
-		az vm start --ids ${VM_ID_ANNOTATION}
-status-annotation:
-		az vm show -d --ids ${VM_ID_ANNOTATION} | grep "powerState" | cut -d\" -f4
+stop-mgpu:
+		az vm deallocate --ids ${VM_ID_MGPU}
+start-mgpu:
+		az vm start --ids ${VM_ID_MGPU}
+status-mgpu:
+		az vm show -d --ids ${VM_ID_MGPU} | grep "powerState" | cut -d\" -f4
 
 # ssh into machine and forward jupyter port
-ssh-annotation:
-		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN_ANNOTATION}
+ssh-mgpu:
+		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN_MGPU}
 
-annotate:
-		x-www-browser http://${VM_IP_ANNOTATION}:5000/
+
