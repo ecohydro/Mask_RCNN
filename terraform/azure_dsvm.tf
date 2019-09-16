@@ -190,43 +190,16 @@ resource "null_resource" "ds" {
   }
 
   provisioner "local-exec" {
-    command = "echo ${azurerm_virtual_machine.ds.id} > .vm-id"
+    command = "echo ${azurerm_virtual_machine.ds.id} > .vm-id-mgpu"
   }
 
   provisioner "local-exec" {
-    command = "echo ${var.admin_user}@${azurerm_public_ip.ds.ip_address} > .vm-ip"
+    command = "echo ${var.admin_user}@${azurerm_public_ip.ds.ip_address} > .vm-ip-mgpu"
   }
 
   provisioner "local-exec" {
     command     = "make syncup"
     working_dir = "../"
-  }
-
-  # mounts the blob container with blobfuse on the vm. used for saving out landsat
-  # setting secrets
-  # mounts the blob container with blobfuse on the vm. used for saving out landsat
-  # setting secrets
-  provisioner "remote-exec" {
-    inline = [
-      "export ACCOUNT_NAME=${var.account_name}",
-      "export ACCOUNT_KEY=${var.account_key}",
-      "export STORAGE_NAME=${var.storage_name}",
-      "export STORAGE_KEY=${var.storage_key}",
-      "export FILESHARE_NAME=${var.fileshare_name}",
-      "export CONTAINER_NAME=${var.container_name}",
-      "echo \"accountName $STORAGE_NAME\" > /home/${var.admin_user}/work/blobfuse.cfg",
-      "echo \"accountKey $STORAGE_KEY\" >> /home/${var.admin_user}/work/blobfuse.cfg",
-      "echo \"containerName $CONTAINER_NAME\" >> /home/${var.admin_user}/work/blobfuse.cfg",
-      "bash /home/${var.admin_user}/work/${var.repo_name}/bash-scripts/mount-fileshare.sh $STORAGE_NAME $FILESHARE_NAME $STORAGE_KEY",
-      "bash /home/${var.admin_user}/work/${var.repo_name}/bash-scripts/mount-blobfuse.sh",
-    ]
-
-    connection {
-      type        = "ssh"
-      user        = var.admin_user
-      private_key = file(var.admin_private_key)
-      host        = azurerm_public_ip.ds.ip_address
-    }
   }
 
   provisioner "file" {
