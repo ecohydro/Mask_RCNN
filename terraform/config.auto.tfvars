@@ -14,7 +14,8 @@ vm_name     = "cropmask-mgpu"
 admin_user = "ryan"
 
 # Type of VM to deploy (default: Standard_NC6 - GPU instance), can also use with cpu Standard_D8_v3, Standard_NC12s_v3 is 2 V100s
-vm_type = "Standard_NC12s_v3"
+# https://docs.microsoft.com/en-us/azure/virtual-machines/linux/sizes-gpu
+vm_type = "Standard_NC24s_v3"
 
 # Name of your repo
 repo_name = "CropMask_RCNN"
