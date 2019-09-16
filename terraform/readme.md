@@ -57,12 +57,6 @@ First make sure you have some prerequisites installed:
 
 The Data Science VM on Azure is offered via the Marketplace and therefore has specific terms of service. Before this offering can be automatically deployed via Terraform you need to accept the license agreement for your subscription. This can be done via **PowerShell**. Easiest way to use powershell is open the Cloudshell on the [Azure Portal](http://portal.azure.com)
 
-<img src="./assets/azure_cloudshell.png" width="80%"><br>
-_Open the Cloudshell by clicking the `>_` icon in the top right_
-
-<img src="./assets/azure_powershell.png" width="50%"><br>
-_Once open select `PowerShell` as environment_
-
 ```powershell
 # Use this command to view the current license agreement
 Get-AzureRmMarketplaceTerms -Publisher "microsoft-ads" -Product "linux-data-science-vm-ubuntu" -Name "linuxdsvmubuntu"
@@ -70,8 +64,6 @@ Get-AzureRmMarketplaceTerms -Publisher "microsoft-ads" -Product "linux-data-scie
 # If you feel confident to agree to the agreement use the following command to enable the offering for your subscription
 Get-AzureRmMarketplaceTerms -Publisher "microsoft-ads" -Product "linux-data-science-vm-ubuntu" -Name "linuxdsvmubuntu" | Set-AzureRmMarketplaceTerms -Accept
 ```
-<img src="./assets/azure_sign_terms.png" width="80%"><br>
-_Final output should look like this_
 
 ### Initialize Terraform 🌏
 
@@ -138,38 +130,14 @@ The Data Science VM might lack the Cuda Deep Neural Net framework. To install it
 
 On the Azure VM do the following
 ```
+conda env create -f environment.yaml
+pip install flit
+flit install --symlink --python $(which python) # isntalls cropmask package and mrcnn sub module locally
 conda activate cropmask
-conda install nb_conda ipykernel # required for jupyter
-python -m ipykernel install --user --name cropmask # tells jupyter where to find env
+conda install -c conda-forge jupyterlab
 ```
 
-Now you can run `jupyter lab` or `jupyter notebook` and the environment will be accessible.
+Now you can run `jupyter lab --no-browser` after activating the `cropmask` environment, the default kernel will be the cropmask kernel.
 
 ## Mounting Azure blob storage
-From [these instructions](https://blogs.msdn.microsoft.com/uk_faculty_connection/2019/02/20/blobfuse-is-an-open-source-project-developed-to-provide-a-virtual-filesystem-backed-by-the-azure-blob-storage/)
-Do the following
-
-```
-sudo nano /opt/blobfuse.cfg
-```
-
-enter in the following information
-
-```
-accountName #account name here#
-accountKey #account key here#
-containerName #container name here#
-```
-
-then
-
-```
-sudo mkdir /az-ml-container
-sudo mkdir /mnt/blobfusecache
-chown -R <your user account> /az-ml-container
-chown -R <your user account> /mnt/blobfusecache/
-# mounts the blob container at az-ml-container, for one time only (becomes inactive on deallocation
-blobfuse /images --tmp-path=/mnt/blobfusecache -o big_writes -o max_read=131072 -o max_write=131072 -o attr_timeout=240 -o fsname=blobfuse -o entry_timeout=240 -o negative_timeout=120 --config-file=/opt/blobfuse.cfg
-```
-
-# use the custom mount scripts after starting and sshing into the vm to connect the vm to storage. Terraform will mount the vms for you one time but if you start and stop the vms you will need to remount. From the Azure portal you can also try to use the connection script provided by clicking "Connect" on the file share, but this has failed in the past due to bugs on the Azure side of things.
+Select the file share you want to mount in the Azure Portal and click "Connect". Use the Linux connection command to mount the vm. After stopping with `make stop`, you will need to mount again so it is best to place this connection command in a bash file on the vm for later reuse.
