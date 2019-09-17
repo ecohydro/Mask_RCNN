@@ -41,7 +41,7 @@ class LandsatConfig(Config):
 
     LEARNING_RATE = 0.0003
 
-    TRAIN_BN = True
+    TRAIN_BN = False
 
     # Image mean from inspect_data ipynb stats
     MEAN_PIXEL = np.array([569.32, 851.37, 894.73])
@@ -50,7 +50,7 @@ class LandsatConfig(Config):
     NAME = "landsat-512-cp"
 
     # Batch size is 4 (GPUs * images/GPU).
-    GPU_COUNT = 2
+    GPU_COUNT = 4
     IMAGES_PER_GPU = 3
 
     # Number of classes (including background)
@@ -74,7 +74,7 @@ class LandsatConfig(Config):
     RPN_ANCHOR_SCALES = (32, 64, 128, 256, 512)  # for cp
 
     # Aim to allow ROI sampling to pick 33% positive ROIs. This is always 33% in inspect_data nb, unsure if that is accurate.
-    TRAIN_ROIS_PER_IMAGE = 600
+    TRAIN_ROIS_PER_IMAGE = 300
 
     # ROIs kept after non-maximum supression (training and inference)
     POST_NMS_ROIS_TRAINING = 1000
@@ -82,20 +82,20 @@ class LandsatConfig(Config):
 
     # Non-max suppression threshold to filter RPN proposals.
     # You can increase this during training to generate more propsals.
-    RPN_NMS_THRESHOLD = 0.7
+    RPN_NMS_THRESHOLD = 0.75
 
     # How many anchors per image to use for RPN training
-    RPN_TRAIN_ANCHORS_PER_IMAGE = 128  # 64
+    RPN_TRAIN_ANCHORS_PER_IMAGE = 256  # 64
 
     # Unsure what best step size is but nucleus used 100
-    STEPS_PER_EPOCH = 50
+    STEPS_PER_EPOCH = 100
 
     # reduces the max number of field instances
     # MAX_GT_INSTANCES = 29 # for smallholder determined using inspect_crop_data.ipynb
     MAX_GT_INSTANCES = 195  # for cp determined using inspect_crop_data.ipynb
 
     # Max number of final detections per image
-    DETECTION_MAX_INSTANCES = 400
+    DETECTION_MAX_INSTANCES = 195
 
     # use small validation steps since the epoch is small
     VALIDATION_STEPS = 50
@@ -119,7 +119,7 @@ class LandsatConfig(Config):
         "rpn_bbox_loss": 1.0,
         "mrcnn_class_loss": 1.0,
         "mrcnn_bbox_loss": 1.0,
-        "mrcnn_mask_loss": 3.0,
+        "mrcnn_mask_loss": 1.0,
     }
 
 
