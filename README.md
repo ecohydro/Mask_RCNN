@@ -6,6 +6,17 @@ See [matterport's mrcnn repo](https://github.com/matterport/Mask_RCNN) for an ex
 
 For an overview of the project in poster form, see this poster I presented at the Fall 2018 Meeting on [Center Pivot Crop Water Use](assets/cropmask_agu2018.pdf). 
 
+## Nebraska Results
+
+This is a non exhaustive overview of models and configurations trained and validated on Landsat Analysis Ready Data and evaluated on held out Landsat ARD tiles. Numbers reported include both mAP@IoU=0.50:0.95 and mAP@IoU=.5 values.
+Unless otherwise noted, all models are fine-tuned from [Resnet-50 COCO weights](https://github.com/matterport/Mask_RCNN/releases/download/v2.1/mask_rcnn_balloon.h5),
+using 4 NVIDIA V100s with 3 512x512 int16 images per GPU. Entries are reported in chronological order from when they were tested from top to bottom. Most defaults in `cropmask.mrcnn.configs` are kept, with changes tracked in `cropmask.model_configs`. I try to note substantial changes to configs that led to improvements or worse performance in this table.
+
+
+ | Backbone                       | mAP@IoU=0.50:0.95<br/>(mask)                                        | mAP@IoU=.5 <br/> (mask)                            | Time <br/>(on 4 V100s) | Configurations <br/> (click to expand)                                                                                                                                                                                                                                          |
+ | -                              | -                                                                   | -                                                  | -                      | -                                                                                                                                                                                                                                                                               |
+ |                                | 0.188                                                               | .269                                               | 2h                     | <details><summary>super quick</summary> TRAIN_ROIS_PER_IMAGE was set too high, 600 vs 300. According to matterport's MaskRCNN wiki, it's best to aim for 33% psotive ROIs per tile, which you can gauge by looking at the distribution of field counts per tile in the inspect_data notebook. Too many ROIs generated led to false positives and false negatives. Next run was better after correcting this.                                        |
+ |                                |                                                                     |                                                    |                        | <details><summary>standard</summary>`MODE_MASK=False MODE_FPN=False` </details>                                                                                                                                                                                                 |
 
 
 ### See `terraform/` folder for instructions to isntall the package and set up an Azure workstation for remote development.
