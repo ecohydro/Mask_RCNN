@@ -55,15 +55,14 @@ def make_dirs(directory_list):
             raise FileExistsError
 
                     
-def train_test_split(chip_dir_path, seed, split_proportion):
+def train_test_split(img_paths, seed, split_proportion):
     """Takes a directory of gridded images and labels and returns the ids 
     of the train_validate set and the test set.
     Each sample folder contains an images and corresponding masks folder."""
     random.seed(seed)
-    id_list = next(os.walk(chip_dir_path))[1]
-    k = round(split_proportion * len(id_list))
-    test_list = random.sample(id_list, k)
-    train_validate_list = list(set(id_list) - set(test_list))
+    k = round(split_proportion * len(img_paths))
+    test_list = random.sample(img_paths, k)
+    train_validate_list = list(set(img_paths) - set(test_list))
     return train_validate_list, test_list
 
 
