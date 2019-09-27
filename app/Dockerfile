@@ -33,9 +33,9 @@ COPY ./cropmask_api /app/cropmask_api/
 # installing environement, replaced 3 lines in original repo
 RUN echo "source activate ai4e_py_api" >> ~/.bashrc
 
-RUN conda update conda -y
+#RUN conda update conda -y
     
-RUN conda env update -f ./app-env.yml -n ai4e_py_api \
+RUN conda env update -f /app/cropmask_api/app-env.yml \
     && cd -
 
 # Application Insights keys and trace configuration
