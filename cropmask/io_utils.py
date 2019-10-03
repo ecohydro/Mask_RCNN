@@ -6,6 +6,8 @@ import numpy as np
 import requests
 import geopandas as gpd
 import fiona
+from pathlib import Path
+import tarfile
 
 def open_rasterio_lsr(path):
     """Reads in a Landsat surface reflectance band and correctly assigns the band metadata.
@@ -48,7 +50,7 @@ def write_xarray_lsr(xr_arr, fpath):
 
 def read_scenes(scenes_folder_pattern):
     """
-    Reads in multiple Landsat surface reflectance scenes given a regex pattern.
+    Reads in multiple Landsat surface reflectance scenes given a regex pattern for ARD scene folders.
 
     Args:
         path (str): Path of form "../*".
@@ -59,7 +61,7 @@ def read_scenes(scenes_folder_pattern):
 
     scene_folders = glob.glob(scenes_folder_pattern)
     # only select files that contain a band
-    sr_paths = [glob.glob(scene_folder+'/*band*') for scene_folder in scene_folders]
+    sr_paths = [glob.glob(scene_folder+'/*SRB*') for scene_folder in scene_folders]  
     xr_arrs = [read_bands_lsr(paths) for paths in sr_paths]
     return xr.concat(xr_arrs, dim="time")
 
@@ -73,3 +75,14 @@ def zipped_shp_url_to_gdf(url):
     with fiona.BytesCollection(b) as f:
         crs = f.crs
         return gpd.GeoDataFrame.from_features(f, crs=crs)
+    
+def untar_all(in_folder, out_folder):
+    folder = Path(in_folder)
+
+    tar_gen = folder.glob("*tar")
+
+    for f in tar_gen:
+
+        otar = tarfile.open(f)
+
+        otar.extractall(os.path.join(out_folder, f.stem))
