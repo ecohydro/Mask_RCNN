@@ -89,3 +89,4 @@ def label_to_png(tif_path, png_path):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         imsave(png_path, img_as_ubyte(1*arr))
+        
