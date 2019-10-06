@@ -1,0 +1,26 @@
+db:
+  image: kartoza/postgis:11.0-2.5
+  volumes:
+    - ./pg/postgres_data:/var/lib/postgresql
+    - ./pg/setup_data:/home/setup
+  restart: always
+  environment:
+    - USERNAME=docker
+    - PASS=docker
+
+dbbackup:
+  image: kartoza/pg-backup:9.6
+  hostname: pg-backups
+  volumes:
+    - ./backups:/home/rave/CropMask_RCNN/postgisdb/backups
+  links:
+    - db:db
+  environment:
+    - DUMPPREFIX=test_ard
+    # These are all defaults anyway, but setting explicitly in
+    # case we ever want to ever use different credentials
+    - POSTGRES_USER=docker
+    - POSTGRES_PASS=docker
+    - POSTGRES_PORT=5432
+    - POSTGRES_HOST=db
+    - POSTGRES_DBNAME=gis 
