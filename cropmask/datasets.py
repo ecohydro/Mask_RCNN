@@ -22,8 +22,8 @@ class ImageDataset(utils.Dataset):
         return image
     
     def split_imagery(self, dataset_dir, seed, split_proportion):
-        self.train_validate_ids, self.test_ids = train_test_split(dataset_dir, seed, split_proportion)
-        return self.train_validate_ids, self.test_ids
+        self.label_train_validate_paths, self.label_test_paths, self.new_train_validate_paths, self.new_test_paths, old_train_validate_paths, old_test_paths  = train_test_split(dataset_dir, seed, split_proportion)
+        return self.new_train_validate_paths, self.new_test_paths
         
     def load_imagery(self, dataset_dir, subset, image_source, class_name):
         """Load a subset of the fields dataset.
@@ -41,19 +41,17 @@ class ImageDataset(utils.Dataset):
         self.add_class(image_source, 1, class_name)
         assert subset in ["train", "test"]
         if subset is "train":
-            image_ids = self.train_validate_ids
+            image_paths = self.new_train_validate_paths
         else:
-            image_ids = self.test_ids
+            image_paths = self.new_test_paths
             
         # Add images
-        for image_id in image_ids:
+        for image_path in image_paths:
+            image_id = os.path.basename(image_path).split("/")[0]
             self.add_image(
                 image_source,
                 image_id=image_id,
-                path=os.path.join(
-                    dataset_dir, str(image_id), "image/{}.tif".format(str(image_id))
-                ),
-            )
+                path=image_path)
 
     def load_mask(self, image_id):
         """Generate instance masks for an image.

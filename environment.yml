@@ -2,6 +2,7 @@ name: cropmask
 channels:
   - conda-forge
 dependencies:
+  - python=3.6
   # Core scientific python
   - numpy
   - matplotlib
@@ -18,7 +19,6 @@ dependencies:
   - cython
   - matplotlib
   - scikit-image
-  - tensorflow-gpu>=1.14
   - keras-gpu>=2.2.2
   - opencv
   - h5py
@@ -41,9 +41,12 @@ dependencies:
 
   # Other stuff
   - yaml
-  - python-graphiz
 
   - pip:
       - imgaug # for mrcnn
       - rioxarray>=0.0.9
       - us
+      - graphviz
+      - tensorflow-gpu==1.13.1
+      - git+git://github.com/waspinator/coco.git@2.1.0
+      - git+git://github.com/waspinator/pycococreator.git@0.2.0
