@@ -1,5 +1,5 @@
 # Pull in the AI for Earth Base Image, so we can extract necessary libraries.
-FROM mcr.microsoft.com/aiforearth/base-py:latest as ai4e_base
+FROM mcr.microsoft.com/aiforearth/base-py:1.5 as ai4e_base
 
 # Use any compatible Ubuntu-based image as your selected base image.
 FROM nvidia/cuda:9.0-cudnn7-runtime-ubuntu16.04
@@ -31,11 +31,9 @@ COPY ./cropmask_api /app/cropmask_api/
 
 # Now add our custom image commands ---------------------------------------------------
 # installing environement, replaced 3 lines in original repo
-RUN echo "source activate ai4e_py_api" >> ~/.bashrc
-
-#RUN conda update conda -y
-    
-RUN conda env update -f /app/cropmask_api/app-env.yml \
+RUN echo "source activate ai4e_py_api" >> ~/.bashrc \ 
+    && conda update conda -y \
+    && conda env update -f /app/cropmask_api/app-env.yml \
     && cd -
 
 # Application Insights keys and trace configuration
@@ -52,8 +50,8 @@ ENV SERVICE_OWNER=AI4E_PyTorch_Example \
 
 ENV API_PREFIX=/v1/keras_iNat_api
 
-ENV STORAGE_ACCOUNT_NAME=$AZURE_STORAGE_NAME \
-    STORAGE_ACCOUNT_KEY=$AZURE_STORAGE_KEY
+ENV STORAGE_ACCOUNT_NAME= \
+    STORAGE_ACCOUNT_KEY=
 
 # Expose the port that is to be used when calling your API
 EXPOSE 80
