@@ -2,15 +2,14 @@ name: ai4e_py_api
 channels:
   - conda-forge
 dependencies:
-  - poppler=0.61
+  - poppler=0.61 # pinning for rasterio issue
   - rasterio
   - keras-gpu>=2.2.2
   - opencv
   - pip:
       # Utilities
       - imgaug # for mrcnn
-      - rasterio # for reading img, conda can't install without libpoppler issue
-      - tensorflow-gpu==1.13.1
+      - tensorflow-gpu==1.13.1 # needs to be pip installed or else ther eis an error
       # Core scientific python
       - numpy
       - matplotlib
@@ -22,4 +21,5 @@ dependencies:
       - Cython
       - h5py
       - setuptools
+      - cropmask
 
