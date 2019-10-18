@@ -1,21 +1,28 @@
 # Pull in the AI for Earth Base Image, so we can extract necessary libraries.
-FROM mcr.microsoft.com/aiforearth/base-py:1.5 as ai4e_base
+FROM mcr.microsoft.com/aiforearth/base-py:1.8-cuda-9.0-runtime as ai4e_base
 
-# Use any compatible Ubuntu-based image as your selected base image.
-FROM nvidia/cuda:9.0-cudnn7-runtime-ubuntu16.04
-# Copy the AI4E tools and libraries to our container.
-COPY --from=ai4e_base /ai4e_api_tools /ai4e_api_tools
+RUN conda update conda
 
-# Add the AI4E API source directory to the PATH.
-ENV PATH /usr/local/envs/ai4e_py_api/bin:$PATH
-# Add the AI4E tools directory to the PYTHONPATH.
-ENV PYTHONPATH="${PYTHONPATH}:/ai4e_api_tools"
+RUN conda install -c conda-forge -n ai4e_py_api keras-gpu=2.2.4 tensorflow-gpu=1.10.0 \
+    && /usr/local/envs/ai4e_py_api/bin/pip install imgaug scikit-image==0.16.1 PyQt5 Cython \
+    && /usr/local/envs/ai4e_py_api/bin/pip install git+git://github.com/ecohydro/CropMask_RCNN@master
 
-# Install Miniconda, Flask, Supervisor, uwsgi
-RUN ./ai4e_api_tools/requirements/install-api-hosting-reqs.sh
+RUN apt-get update \
+    && apt-get install software-properties-common -y \
+    && add-apt-repository ppa:ubuntugis/ppa \
+    && apt-get install gdal-bin -y \
+    && apt-get install libgdal-dev -y
 
-# Install Azure Blob SDK
-RUN ./ai4e_api_tools/requirements/install-azure-blob.sh
+RUN export CPLUS_INCLUDE_PATH=/usr/include/gdal \
+    && export C_INCLUDE_PATH=/usr/include/gdal \
+    && pip install GDAL==$(gdal-config --version | awk -F'[.]' '{print $1"."$2}') --global-option=build_ext --global-option="-I/usr/include/gdal" \
+    && pip install rasterio \
+    && pip install geopandas
+
+# Now add our custom image commands ---------------------------------------------------
+# installing environement, replaced 3 lines in original repo
+# RUN conda install -c conda-forge -n ai4e_py_api geopandas rasterio=1.0 poppler=0.61 \
+#     && conda clean -t
 
 EXPOSE 55678 50001
 
@@ -29,26 +36,21 @@ RUN chmod +x /startup.sh
 # Copy your API code
 COPY ./cropmask_api /app/cropmask_api/
 
-# Now add our custom image commands ---------------------------------------------------
-# installing environement, replaced 3 lines in original repo
-RUN echo "source activate ai4e_py_api" >> ~/.bashrc \ 
-    && conda update conda -y \
-    && conda env update -f /app/cropmask_api/app-env.yml \
-    && cd -
+ENV PYTHONPATH="${PYTHONPATH}:/app/"
 
 # Application Insights keys and trace configuration
 ENV APPINSIGHTS_INSTRUMENTATIONKEY= \
     TRACE_SAMPLING_RATE=1.0
 
 # The following variables will allow you to filter logs in AppInsights
-ENV SERVICE_OWNER=AI4E_PyTorch_Example \
+ENV SERVICE_OWNER=AI4E_cropmask_app \
     SERVICE_CLUSTER=Local\ Docker \
-    SERVICE_MODEL_NAME=AI4E_PyTorch_Example \
+    SERVICE_MODEL_NAME=AI4E_cropmask_app \
     SERVICE_MODEL_FRAMEWORK=Python \
     SERVICE_MODEL_FRAMEOWRK_VERSION=3.6.6 \
     SERVICE_MODEL_VERSION=1.0
 
-ENV API_PREFIX=/v1/keras_iNat_api
+ENV API_PREFIX=/v1/keras_api
 
 ENV STORAGE_ACCOUNT_NAME= \
     STORAGE_ACCOUNT_KEY=

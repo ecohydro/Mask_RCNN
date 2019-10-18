@@ -8,9 +8,13 @@ from skimage import img_as_ubyte, exposure
 from cropmask import model_configs
 from cropmask.mrcnn import model as modellib
 import tensorflow as tf
-import skimage.io as skio
 from rasterio.plot import reshape_as_image
 from rasterio.io import MemoryFile
+from rasterio import features
+import geopandas as gpd
+from shapely.geometry import shape
+from affine import Affine
+from keras import backend as K
 # Core detection functions
 
 def open_image(image_bytes):
@@ -53,16 +57,17 @@ def generate_detections(arr):
     # The model was copied to this location when the container was built; see ../Dockerfile
     config = model_configs.LandsatInferenceConfig(3)
     print('keras_detector.py: Loading model weights...')
-    LOGS_DIR = "/app/keras_iNat_api/logs"
+    LOGS_DIR = "/app/cropmask_api/logs"
     with tf.device("/cpu:0"):
       model = modellib.MaskRCNN(mode="inference",
                                 model_dir=LOGS_DIR,
                                 config=config)
-    model_path = '/home/rave/CropMask_RCNN/app/keras_iNat_api/mask_rcnn_landsat-512-cp_0042.h5'
+    model_path = '/app/cropmask_api/mask_rcnn_landsat-512-cp_0024.h5'
     model.load_weights(model_path, by_name=True)
     print('keras_detector.py: Model weights loaded.')
 
     result = model.detect([arr], verbose=1)
+    K.clear_session()
     r = result[0]
     return r['rois'], r['class_ids'], r['scores'], r['masks']# these are lists of bboxes, scores etc
 

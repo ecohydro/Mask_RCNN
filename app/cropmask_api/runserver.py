@@ -104,7 +104,11 @@ def detect(*args, **kwargs):
 
         ai4e_service.api_task_manager.CompleteTask(taskId, 'completed - geojson output written to: ' + sas_url_geojson)
         print('runserver.py: detect() finished.')
-    except:
+    except Exception as e:
+        print(str(e))
+        print(sys.exc_info()[0]) # error class
+        print(sys.exc_info()[1]) # traceback
+        print(sys.exc_info()[2]) # traceback
         log.log_exception(sys.exc_info()[0], taskId)
         ai4e_service.api_task_manager.FailTask(taskId, 'failed: ' + str(sys.exc_info()[0])+'\n'+str(traceback.format_exc()))
 
