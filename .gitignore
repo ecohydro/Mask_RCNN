@@ -2,6 +2,8 @@ app/LocalForwarder.config
 
 src/ # this is built from installing packages from github with conda
 azure_configs.yaml
+notebooks/test_metric
+postgisdb/
 
 # Data files and directories common in repo root
 data/
