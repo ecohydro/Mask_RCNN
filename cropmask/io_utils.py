@@ -9,7 +9,7 @@ import fiona
 from pathlib import Path
 import tarfile
 
-def open_rasterio_lsr(path):
+def open_rasterio_lsr(path, chunks = {'x':500, 'y':500}):
     """Reads in a Landsat surface reflectance band and correctly assigns the band metadata.
 
     Args:
@@ -22,12 +22,12 @@ def open_rasterio_lsr(path):
     """
     
     band_int = int(os.path.splitext(path)[0][-1])
-    data_array = xr.open_rasterio(path, chunks={'band': 1}) #chunks makes i lazyily executed
+    data_array = xr.open_rasterio(path, chunks=chunks) #chunks makes it lazily executed
     band_val = data_array['band']
     band_val.data = np.array((band_int, ))
     return data_array
 
-def read_bands_lsr(path_list):
+def read_bands_lsr(path_list, chunks = {'x':500, 'y':500}):
     """
     Concatenates a list of landsat paths into a single data array.
     
@@ -42,7 +42,7 @@ def read_bands_lsr(path_list):
         bool: Returns an xarray data array
     """
     
-    band_arrs = [open_rasterio_lsr(path) for path in path_list]
+    band_arrs = [open_rasterio_lsr(path, chunks=chunks) for path in path_list]
     return xr.concat(band_arrs, dim="band")
 
 def write_xarray_lsr(xr_arr, fpath):
