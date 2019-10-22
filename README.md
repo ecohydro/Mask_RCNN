@@ -1,35 +1,22 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 
-CropMask is a project to train and deploy instance segmentation models for mapping center pivot agriculture from multispectral satellite imagery. It extends [matterport's module](https://github.com/matterport/Mask_RCNN) , which is an implementation of [Mask R-CNN](https://arxiv.org/abs/1703.06870) on Python 3, Keras, and TensorFlow. CropMask work with multispectral satellite imagery, contains infrastructure-as-code via terraform to provision a testing cluster on Azure, and will eventually contain a Leaflet or OpenLayers web app to expose maps of crop water use in drylands across the globe. 
+CropMask_RCNN is a project to train and deploy instance segmentation models for mapping fallow and irrigated center pivot agriculture from multispectral satellite imagery. The primary goal is to develop a model or set of models that can map center pivot agriculture with high precision and recall across different dryland agriculture regions. The main strategy I'm using relies on transfer learning from COCO before finetuning on Landsat tiles from multiple cloud-free scenes acquired in Nebraska during the 2005 growing season (late May - early October). This time period coincides with the labeled dataset described below. It extends [matterport's module](https://github.com/matterport/Mask_RCNN) , which is an implementation of [Mask R-CNN](https://arxiv.org/abs/1703.06870) on Python 3, Keras, and TensorFlow. CropMask_RCNN work with multispectral Landsat satellite imagery, contains infrastructure-as-code via terraform to build a GPU enabled Azure Data Science VM (from [Andreus Affenhaeuser's guide](https://medium.com/@an0xff/automated-dev-workflow-for-using-data-science-vm-on-azure-13c1a5b56f91)), and a REST API for submitting Landsat geotiff imagery for center pivot detection. 
 
 See [matterport's mrcnn repo](https://github.com/matterport/Mask_RCNN) for an explanation of the Mask R-CNN architecture and a general guide to notebook tutorials and notebooks for inspecting model inputs and outputs.
 
 For an overview of the project in poster form, see this poster I presented at the Fall 2018 Meeting on [Center Pivot Crop Water Use](assets/cropmask_agu2018.pdf). 
 
-Below are Preliminary results from test on 2004 Landsat SR scene over western Nebraska. Detections are in Red, Targets from the Nebraska Department of Agriculture are in Green. Metrics are (probability score)/(intersection over union)
-![Center Pivot Detections](assets/cp_detection.png)
+## Nebraska Results
 
-## Local Installation of cropmask dependencies, see `terraform/` folder for instructions to set up azure components.
-1. Install dependencies and install the package
-   ```bash
-   conda env create -f cropmask-env.yml
-   python setup.py install # use develop instead of install for editable mode
-   ```
-2. Create a file called `.lsru` at `~` and fill in your NASA Earth Explorer Login credentials
-   ```
-   [usgs]
-   username=
-   password=
-   ```
-3. Copy the `azure_configs_template.yaml`, name it `azure_configs.yaml` and place it outside of the git repository (so you don't accidently commit it). Fill it in according to the comments int he template.
-4. Download the [National WBD Dataset](http://prd-tnm.s3-website-us-west-2.amazonaws.com/?prefix=StagedProducts/Hydrography/WBD/National/GDB/)
-5. Find the watershed you'd like to get Landsat imagery for with this [tool](https://water.usgs.gov/wsc/map_index.html). Make note of the HUC ID and the HUC level (the number of digits in the HUC ID) and put these in your azure_config.yaml file
-5. Download pre-trained COCO weights (mask_rcnn_coco.h5) from the [releases page](https://github.com/matterport/Mask_RCNN/releases).
-6. (Optional) To train or test on MS COCO install `pycocotools` from one of these repos. They are forks of the original pycocotools with fixes for Python3 and Windows (the official repo doesn't seem to be active anymore).
+This is a non exhaustive overview of models and configurations trained and validated on Landsat Analysis Ready Data and evaluated on held out Landsat ARD tiles. Numbers reported include both mAP@IoU=0.50:0.95 and mAP@IoU=.5 values.
+Unless otherwise noted, all models are fine-tuned from [Resnet-50 COCO weights](https://github.com/matterport/Mask_RCNN/releases/download/v2.1/mask_rcnn_balloon.h5),
+using 4 NVIDIA V100s with 3 512x512 int16 images per GPU. Entries are reported in chronological order from when they were tested from top to bottom. Most defaults in `cropmask.mrcnn.configs` are kept, with changes tracked in `cropmask.model_configs`. I try to note substantial changes to configs that led to improvements or worse performance in this table.
 
-    * Linux: https://github.com/waleedka/coco
-    * Windows: https://github.com/philferriere/cocoapi.
-    You must have the Visual C++ 2015 build tools on your path (see the repo for additional details)
-7. To train using labels from the [Nebraska 2005 Center Pivots Dataset](https://calmit.unl.edu/data/2005_NE_Center_Pivots.zip) and define the projection as Nebraska State Plane NAD 1983 in US Feet, which is EPSG code 102704
 
-### This setup will allow you to run the parts of the project that don't require Azure, like locally downloading Landsat products according to watershed boundaries. For instructions on setting up the entire project on Azure, see the README in the terraform folder
+ | Backbone                       | mAP@IoU=0.50:0.95<br/>(mask)                                        | mAP@IoU=.5 <br/> (mask)                            | Time <br/>(on 4 V100s) | Configurations <br/> (click to expand)                                                                                                                                                                                                                                          |
+ | -                              | -                                                                   | -                                                  | -                      | -                                                                                                                                                                                                                                                                               |
+ |                                | 0.188                                                               | 0.269                                              | 2h                     | <details><summary>super quick</summary> TRAIN_ROIS_PER_IMAGE was set too high, 600 vs 300. According to matterport's MaskRCNN wiki, it's best to aim for 33% psotive ROIs per tile, which you can gauge by looking at the distribution of field counts per tile in the inspect_data notebook. Too many ROIs generated led to false positives and false negatives. Next run was better after correcting this.                                        |
+ |                                | 0.198                                                               | 0.297                                              | 1.5h                   | <details><summary>standard</summary>changed TRAIN_ROIS_PER_IMAGE to 300, same configs as above model. </details>                                                                                                                                                                                                 |
+
+
+### See `terraform/` folder for instructions to install the package and set up an Azure workstation for remote development.
