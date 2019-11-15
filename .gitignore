@@ -1,5 +1,7 @@
 app/LocalForwarder.config
-
+notebooks/test_metric
+images/*.tif
+images/*.tiff
 src/ # this is built from installing packages from github with conda
 azure_configs.yaml
 notebooks/test_metric
