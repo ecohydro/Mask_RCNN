@@ -7,7 +7,6 @@ dependencies:
   - numpy
   - matplotlib
   - pyqt
-  - seaborn
   - xlrd # for excel sheets in pandas
   - scipy
   - scikit-image
@@ -19,13 +18,14 @@ dependencies:
   - cython
   - matplotlib
   - scikit-image
-  - keras-gpu>=2.2.2
   - opencv
   - h5py
   - IPython[all]
 
   # Geo stuff
   - rasterstats
+  - rioxarray
+  - geocube
   - geopy
   - cartopy
   - geopandas
@@ -44,9 +44,7 @@ dependencies:
 
   - pip:
       - imgaug # for mrcnn
-      - rioxarray>=0.0.9
       - us
       - graphviz
-      - tensorflow-gpu==1.13.1
       - git+git://github.com/waspinator/coco.git@2.1.0
       - git+git://github.com/waspinator/pycococreator.git@0.2.0
