@@ -45,6 +45,8 @@ dependencies:
   - pip:
       - imgaug # for mrcnn
       - us
+      - flit
       - graphviz
       - git+git://github.com/waspinator/coco.git@2.1.0
       - git+git://github.com/waspinator/pycococreator.git@0.2.0
+      - git+https://github.com/facebookresearch/fvcore
