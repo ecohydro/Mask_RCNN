@@ -45,8 +45,6 @@ def read_bands_lsr(path_list):
     band_arrs = [open_rasterio_lsr(path) for path in path_list]
     return xr.concat(band_arrs, dim="band")
 
-def write_xarray_lsr(xr_arr, fpath):
-    xr_arr.rio.to_raster(fpath)
 
 def read_scenes(scenes_folder_pattern):
     """

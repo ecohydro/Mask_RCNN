@@ -6,11 +6,14 @@ import geopandas as gpd
 from rasterio import features
 import rasterio
 import us
+import xarray
+import rioxarray
 from numpy import uint8
 from cropmask.label_prep import rio_bbox_to_polygon
 from cropmask.misc import parse_yaml, make_dirs, img_to_png, label_to_png
 from cropmask import sequential_grid, label_prep
 from cropmask import io_utils 
+from cropmask import coco_convert
 
 def setup_dirs(param_path):
     """
@@ -57,7 +60,7 @@ class PreprocessWorkflow():
         self.DATASET = os.path.join(self.ROOT, params['dirs']["dataset"])
         self.SCENE = os.path.join(self.DATASET, params['dirs']["scene"])
         self.TRAIN = os.path.join(self.DATASET, params['dirs']["train"])
-        self.NEG_BUFFERED = os.path.join(self.DATASET, params['dirs']["neg_buffered_labels"])
+        self.TILES = os.path.join(self.DATASET, params['dirs']["tiles"])
         
         # scene specific paths and variables
         self.scene_basename = os.path.splitext(os.path.basename(self.scene_dir_path))[0]
@@ -75,9 +78,6 @@ class PreprocessWorkflow():
         self.grid_size = params['image_vals']['grid_size']
         self.usable_threshold = params['image_vals']['usable_thresh']
         self.split = params['image_vals']['split']
-        self.MAX_THREADS = params['processing']['MAX_THREADS']
-        self.CHUNK_SIZE = params['processing']['CHUNK_SIZE']
-        self.MAX_PROCESSES = params['processing']['MAX_PROCESSES']
 
     def yaml_to_band_index(self):
         """Parses config booleans to a list of band indexes to be stacked.
@@ -119,9 +119,6 @@ class PreprocessWorkflow():
                 self.meta=meta
                 self.bounds = rast.bounds
         return self
-    
-    def load_single_scene(self, product_paths):
-        return io_utils.read_bands_lsr(product_paths)
         
     def stack_and_save_bands(self):
         """Load the landsat bands specified by yaml_to_band_index and returns 
@@ -144,25 +141,21 @@ class PreprocessWorkflow():
         """
         
         product_paths = self.get_product_paths(self.band_list)
-        scene_arr = self.load_single_scene(product_paths)
+        scene_arr = io_utils.read_bands_lsr(product_paths)
         scene_name = os.path.basename(product_paths[0])[:-10] + ".tif"
         scene_path = os.path.join(self.SCENE, scene_name)
         self.scene_path = scene_path
-        io_utils.write_xarray_lsr(scene_arr, scene_path)
+        scene_arr.rio.to_raster(scene_path)
         return self
             
-    def preprocess_labels(self):
+    def negative_buffer_and_small_filter(self):
         """For preprcoessing reference dataset"""
         shp_frame = gpd.read_file(self.source_label_path)
-        # keeps the class of interest if it is there and the polygon of raster extent
-        shp_frame = shp_frame.to_crs(self.meta['crs'].to_dict()) # reprojects to landsat's utm zone
-        tif_polygon = rio_bbox_to_polygon(self.bounds) 
-        shp_series = shp_frame.intersection(tif_polygon) # clips by landsat's bounds including nodata corners
-        shp_series = shp_series.loc[shp_series.area > self.small_area_filter]
-        shp_series = shp_series.buffer(self.neg_buffer)
-        return shp_series.loc[shp_series.is_empty==False]
+        shp_frame = shp_frame.loc[shp_frame.geometry.area > self.small_area_filter]
+        shp_frame = shp_frame.buffer(self.neg_buffer)
+        return shp_frame.loc[shp_frame.is_empty==False]
             
-    def negative_buffer_and_small_filter(self, neg_buffer, small_area_filter):
+    def tile_scene_and_vector(self, neg_buffer, small_area_filter):
         """
         Applies a negative buffer to labels since some are too close together and 
         produce conjoined instances when connected components is run (even after 
@@ -178,81 +171,28 @@ class PreprocessWorkflow():
 
         Returns rasterized labels that are ready to be gridded
         """
-        shp_series = self.preprocess_labels()
-        meta = self.meta.copy()
-        meta.update({'count':1})
-        meta.update({'dtype':'uint8'})
-        meta.update({'nodata':255})
-        with rasterio.open(self.rasterized_label_path, "w+", **meta) as out:
-            out_arr = out.read(1)
-            # https://gis.stackexchange.com/questions/151339/rasterize-a-shapefile-with-geopandas-or-fiona-python#151861
-            shapes = shp_series.values
-            burned = features.rasterize(
-                shapes=shapes,
-                fill=0,
-                out_shape=(meta['height'],meta['width']),
-                transform=out.transform,
-                default_value=1,
-            )
-            burned[burned < 0] = 0
-            burned[burned > 0] = 1
-            burned = burned.astype(uint8, copy=False)
-            out.write(burned, 1)
-            
-            print(
-            "Done applying negbuff of {negbuff} and filtering small labels of area less than {area}".format(
-                negbuff=self.neg_buffer, area=self.small_area_filter)
-                )
-        return self
+        shp_frame = self.negative_buffer_and_small_area_filter()
+        scene_vector_intersection_bounds = shp_frame.intersection(rio_bbox_to_polygon(self.bounds)).bounds
+        raster_tiler = sol.tile.raster_tile.RasterTiler(dest_dir=os.path.join(self.TILES,"image_tiles"),  # the directory to save images to
+                                                src_tile_size=(512, 512),  # the size of the output chips
+                                                verbose=True,
+                                                nodata=-9999,
+                                                resampling="bilinear",
+                                                tile_bounds=scene_vector_intersection_bounds)
         
-    def grid_images(self):
-        """
-        Grids up imagery to a variable size. Filters out imagery with too little usable data.
-        appends a random unique id to each tif and label pair, appending string 'label' to the 
-        mask. Also filters out windoed images that don't fall within the extent that has been exhaustively labeled (gdf)
-        """
-        nebraska_url = us.states.NE.shapefile_urls('state') #should be abstracted out for other regions to accept geojson
-        gdf = io_utils.zipped_shp_url_to_gdf(nebraska_url)
-        gdf = gdf.to_crs(self.meta['crs'].to_dict())
-        with rasterio.open(self.scene_path, 'r') as src:
-            chip_list = sequential_grid.get_tiles_for_threaded_map(src, gdf, usable_threshold=self.usable_threshold, width=self.grid_size, height=self.grid_size)
-        self.chip_img_paths = sequential_grid.grid_images_rasterio_sequential(self.scene_path, self.TRAIN,  "image", self.scene_basename+'_tile_{}_{}',
-                                                                              gdf, output_name_template=self.scene_basename+'_tile_{}_{}.tif', 
-                                                                              grid_size=self.grid_size, chip_list=chip_list)
-        self.chip_label_paths = sequential_grid.grid_images_rasterio_sequential(self.rasterized_label_path, self.TRAIN, "mask", self.scene_basename+'_tile_{}_{}',
-                                                                                gdf, output_name_template=self.scene_basename+'_tile_{}_{}_label.tif', 
-                                                                                grid_size=self.grid_size, chip_list=chip_list)
-        return self      
+        self.geojson_tile_dir = os.path.join(self.TILES,"geojson_tiles")
+        solaris.tile.vector_tile(dest_dir=self.geojson_tile_dir,  # the directory to save images to
+                                                src_tile_size=(512, 512),  # the size of the output chips
+                                                verbose=True,
+                                                tile_bounds=scene_vector_intersection_bounds)
+        
+        # everything below needs to be in own func
+        
+        for file_path in os.listdir(self.geojson_tile_dir):
+            gdf = gpd.read_file(file_path)
             
-    def connected_components(self):
-        """
-        Extracts individual instances into their own tif files. Saves them
-        in each folder ID in train folder. If an image has no instances,
-        saves it with a empty mask.
-        """
-        new_label_paths = []
-        for old_label_path in self.chip_label_paths:
-            # for imgs with no instances, creates empty mask
-            # only runs connected comp if there is at least one instance
-            arr = skio.imread(old_label_path)
-            blob_labels = label_prep.connected_components(arr)
-            blob_labels = label_prep.extract_labels(blob_labels)
-            chip_id = os.path.basename(old_label_path.split("_label.tif")[0])
-            mask_folder = os.path.join(self.TRAIN, chip_id, "mask")
-            label_name = chip_id + "_label.tif"
-            label_path = os.path.join(mask_folder, label_name)
-            blob_labels = blob_labels.astype(uint8)
-            
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                skio.imsave(label_path, blob_labels)
-            
-            new_label_paths.append(label_path)
-            
-        self.chip_label_paths = new_label_paths
-            
-        return self
-    
+            sol.vector.mask.instance_mask(gdf, out_file=None, reference_im=None, geom_col='geometry', do_transform=None, affine_obj=None, shape=(512, 512), out_type='int', burn_value=1, burn_field=None) # https://github.com/CosmiQ/solaris/pull/262/files
+
     
     def imgs_to_pngs(self):
         """
