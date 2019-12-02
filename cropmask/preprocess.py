@@ -30,15 +30,17 @@ def setup_dirs(param_path):
     # the folder structure for the unique run
     ROOT = params['dirs']["root"]
     DATASET = os.path.join(ROOT, params['dirs']["dataset"])
-    SCENE = os.path.join(DATASET, params['dirs']["scene"])
-    TRAIN = os.path.join(DATASET, params['dirs']["train"])
-    NEG_BUFFERED = os.path.join(DATASET, params['dirs']["neg_buffered_labels"])
+    SCENE = os.path.join(DATASET, "scene")
+    TILES = os.path.join(DATASET, "tiles")
+    LABELS = os.path.join(DATASET, "tiles", "labels")
+    TRAIN = os.path.join(DATASET, "train")
 
     directory_list = [
             DATASET,
             SCENE,
             TRAIN,
-            NEG_BUFFERED,
+            TILES,
+            LABELS
         ]
     make_dirs(directory_list)
     return directory_list
@@ -58,19 +60,13 @@ class PreprocessWorkflow():
          # the folder structure for the unique run
         self.ROOT = params['dirs']["root"]
         self.DATASET = os.path.join(self.ROOT, params['dirs']["dataset"])
-        self.SCENE = os.path.join(self.DATASET, params['dirs']["scene"])
-        self.TRAIN = os.path.join(self.DATASET, params['dirs']["train"])
-        self.TILES = os.path.join(self.DATASET, params['dirs']["tiles"])
+        self.SCENE = os.path.join(self.DATASET, "scene")
+        self.TRAIN = os.path.join(self.DATASET, "train")
+        self.TILES = os.path.join(self.DATASET, "tiles")
         
         # scene specific paths and variables
-        self.scene_basename = os.path.splitext(os.path.basename(self.scene_dir_path))[0]
-        self.label_basename = os.path.splitext(os.path.basename(self.source_label_path))[0]
-        tifname = self.label_basename + "_" + self.scene_basename + ".tif"
-        self.rasterized_label_path = os.path.join(self.NEG_BUFFERED, tifname)
         self.band_list = [] # the band indices
         self.meta = {} # meta data for the scene
-        self.chip_img_paths = [] # list of chip ids of form [scene_id]_[random number]
-        self.chip_label_paths = [] # list of chip labels of form [scene_id]_[random number]
         self.small_area_filter = params['label_vals']['small_area_filter']
         self.neg_buffer = params['label_vals']['neg_buffer']
         self.ag_class_int = params['label_vals']['ag_class_int'] # TO DO, not implemented but needs to be for multi class
@@ -155,7 +151,7 @@ class PreprocessWorkflow():
         shp_frame = shp_frame.buffer(self.neg_buffer)
         return shp_frame.loc[shp_frame.is_empty==False]
             
-    def tile_scene_and_vector(self, neg_buffer, small_area_filter):
+    def tile_scene_and_vector(self):
         """
         Applies a negative buffer to labels since some are too close together and 
         produce conjoined instances when connected components is run (even after 
@@ -173,25 +169,27 @@ class PreprocessWorkflow():
         """
         shp_frame = self.negative_buffer_and_small_area_filter()
         scene_vector_intersection_bounds = shp_frame.intersection(rio_bbox_to_polygon(self.bounds)).bounds
-        raster_tiler = sol.tile.raster_tile.RasterTiler(dest_dir=os.path.join(self.TILES,"image_tiles"),  # the directory to save images to
-                                                src_tile_size=(512, 512),  # the size of the output chips
+        self.image_tile_dir = os.path.join(self.TILES,"image_tiles")
+        raster_tiler = sol.tile.raster_tile.RasterTiler(dest_dir=self.image_tile_dir,  # the directory to save images to
+                                                src_tile_size=(self.grid_size, self.grid_size),  # the size of the output chips
                                                 verbose=True,
                                                 nodata=-9999,
                                                 resampling="bilinear",
                                                 tile_bounds=scene_vector_intersection_bounds)
-        
+        raster_bounds_crs = raster_tiler.tile(self.scene_path)
         self.geojson_tile_dir = os.path.join(self.TILES,"geojson_tiles")
-        solaris.tile.vector_tile(dest_dir=self.geojson_tile_dir,  # the directory to save images to
-                                                src_tile_size=(512, 512),  # the size of the output chips
-                                                verbose=True,
-                                                tile_bounds=scene_vector_intersection_bounds)
+        vector_tiler = solaris.tile.vector_tile.VectorTiler(dest_dir=self.geojson_tile_dir,  # the directory to save images to
+                                                verbose=True)         
+        vector_tiler.tile(shp_frame, tile_bounds=scene_vector_intersection_bounds,
+                                                tile_bounds_crs=raster_bounds_crs)
         
-        # everything below needs to be in own func
-        
-        for file_path in os.listdir(self.geojson_tile_dir):
-            gdf = gpd.read_file(file_path)
-            
-            sol.vector.mask.instance_mask(gdf, out_file=None, reference_im=None, geom_col='geometry', do_transform=None, affine_obj=None, shape=(512, 512), out_type='int', burn_value=1, burn_field=None) # https://github.com/CosmiQ/solaris/pull/262/files
+        # everything below needs to be in own func       
+        for geojson_path, img_path in zip(vector_tiler.tile_paths, raster_tiler.tile_paths):
+            assert geojson_path.split("geoms_")[1].split(".geojson")[0] == img_path.split("sample_geotiff_custom_proj_")[1].split(".tif")[0]
+            gdf = gpd.read_file(geojson_path)
+            file_id = os.path.basename(geojson_path).split(".geojson")[0]
+            label_file_path = os.path.join(self.TILES, "labels", file_id + ".tif")
+            sol.vector.mask.instance_mask(gdf, out_file=label_file_path, reference_im=img_path, geom_col='geometry', do_transform=None, affine_obj=None, shape=(512, 512), out_type='int', burn_value=1, burn_field=None) # https://github.com/CosmiQ/solaris/pull/262/files
 
     
     def imgs_to_pngs(self):
@@ -234,9 +232,7 @@ class PreprocessWorkflow():
         
         self.negative_buffer_and_small_filter(-31, 100)
         
-        self.grid_images()
-        
-        self.connected_components()
+        self.tile_scene_and_vector()
         
         # train test split is done outside of this function to accomodate multiple scenes
         

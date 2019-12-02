@@ -1,8 +1,6 @@
 dirs:
     root: /mnt/cropmaskperm
-    dataset: test-ard-july-august # rename this based on the imagery and labels
-    scene: scene
-    train: chips
+    dataset: test-ard-july-august-solaris # rename this based on the imagery and labels
     neg_buffered_labels: neg_buffered_labels
 landsat_bands_to_include:
     - blue: true

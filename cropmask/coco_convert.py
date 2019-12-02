@@ -142,7 +142,7 @@ def copy_to_coco_folder_structure(ROOT_DIR='/mnt/cropmaskperm/test-landsat/', CH
     print("done copying files")
     return label_train_validate_paths, label_test_paths, new_train_validate_paths, new_test_paths
 
-def make_save_coco_json(ROOT_DIR)
+def make_save_coco_json(ROOT_DIR):
     print("copying and saving coco json")
     CHIP_DIR=os.path.join(ROOT_DIR, chips)
     label_train_validate_paths, label_test_paths, new_train_validate_paths, new_test_paths = copy_to_coco_folder_structure(ROOT_DIR, CHIP_DIR)
