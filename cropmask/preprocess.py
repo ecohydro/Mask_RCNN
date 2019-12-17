@@ -15,6 +15,7 @@ from cropmask import sequential_grid, label_prep
 from cropmask import io_utils 
 from cropmask import coco_convert
 import solaris as sol
+from tqdm import tqdm
 
 def setup_dirs(param_path):
     """
@@ -182,27 +183,27 @@ class PreprocessWorkflow():
         raster_tiler = sol.tile.raster_tile.RasterTiler(dest_dir=self.image_tile_dir,  # the directory to save images to
                                                 src_tile_size=(self.grid_size, self.grid_size),  # the size of the output chips
                                                 verbose=True,
-                                                nodata=-9999,
                                                 aoi_boundary=bounds_poly)
         raster_bounds_crs = raster_tiler.tile(self.scene_path)
-        self.geojson_tile_dir = os.path.join(self.TILES,"geojson_tiles")
-        vector_tiler = sol.tile.vector_tile.VectorTiler(dest_dir=self.geojson_tile_dir,  # the directory to save images to
-                                                verbose=True)
         shp_frame.crs = shp_frame.crs.to_wkt()# geopandas can't save dfs with crs in rasterio format
-        vector_tiler.tile(shp_frame, tile_bounds=raster_tiler.tile_bounds)
         
-        self.vector_tile_paths = vector_tiler.tile_paths
+        self.geojson_tile_dir = os.path.join(self.TILES,"geojson_tiles")
+        vector_tiler = sol.tile.vector_tile.VectorTiler(dest_dir=self.geojson_tile_dir,
+                                                verbose=True)
+        vector_tiler.tile(shp_frame, tile_bounds=raster_tiler.tile_bounds)
+        self.geojson_tile_paths = vector_tiler.tile_paths
         self.raster_tile_paths = raster_tiler.tile_paths
         
-def tiles_to_masks(self):
-           
-    for geojson_path, img_path in zip(self.vector_tile_paths, self.raster_tile_paths):
-        gdf = gpd.read_file(geojson_path)
-        file_id = os.path.basename(geojson_path).split(".geojson")[0]
-        label_file_path = os.path.join(self.TILES, "labels", file_id + ".tif")
-        sol.vector.mask.instance_mask(gdf, out_file=label_file_path, reference_im=img_path, 
-                                      geom_col='geometry', do_transform=None, 
-                                      out_type='int', burn_value=1, burn_field=None) # https://github.com/CosmiQ/solaris/pull/262/files
+    def geojsons_to_masks(self):
+        self.rasterized_label_paths = []
+        for img_tile, geojson_tile in zip(tqdm(sorted(self.raster_tile_paths)), sorted(self.geojson_tile_paths)):
+            fid = geojson_tile.split(".geojson")[0]
+            rasterized_label_path = os.path.join(self.TILES, "labels", fid + ".tif")
+            self.rasterized_label_paths.append(rasterized_label_path)
+            gdf = gpd.read_file(geojson_tile)
+            sol.vector.mask.instance_mask(gdf, out_file=rasterized_label_path, reference_im=img_tile, 
+                                          geom_col='geometry', do_transform=None, 
+                                          out_type='int', burn_value=1, burn_field=None) # https://github.com/CosmiQ/solaris/pull/262/files
 
     
     def imgs_to_pngs(self):
