@@ -54,26 +54,6 @@ def make_dirs(directory_list):
             print("The directory "+d+" exists already. Check it and maybe delete it or change config.")
             raise FileExistsError
 
-                    
-def train_test_split(chip_dir, root_dir, seed, split_proportion):
-    """Takes a directory of gridded images and labels and returns the ids 
-    of the train_validate set and the test set. Move sthese to new split folders
-    "train" and "test"
-    Each sample folder contains an images and corresponding masks folder."""
-    random.seed(seed)
-    id_list = next(os.walk(chip_dir))[1]
-    k = round(split_proportion * len(id_list))
-    test_list = random.sample(id_list, k)
-    train_validate_list = list(set(id_list) - set(test_list))
-    
-    new_test_paths = [os.path.join(root_dir, "test", fid + ".tif") for fid in test_list]
-    new_train_validate_paths = [os.path.join(root_dir, "train", fid + ".tif") for fid in train_validate_list]
-    label_test_paths = [os.path.join(chip_dir, fid, "mask", fid + "_label.tif") for fid in test_list]
-    label_train_validate_paths = [os.path.join(chip_dir, fid, "mask", fid + "_label.tif") for fid in train_validate_list]
-    old_test_paths = [os.path.join(chip_dir, fid, "image", fid + ".tif") for fid in test_list]
-    old_train_validate_paths = [os.path.join(chip_dir, fid, "image", fid + ".tif") for fid in train_validate_list]
-    return label_train_validate_paths, label_test_paths, new_train_validate_paths, new_test_paths, old_train_validate_paths, old_test_paths 
-
 
 def img_to_png(tif_path, png_path):
     """
@@ -99,3 +79,26 @@ def label_to_png(tif_path, png_path):
         warnings.simplefilter("ignore")
         imsave(png_path, img_as_ubyte(1*arr))
         
+def imgs_to_pngs():
+    """
+    Extracts individual instances into their own tif files. Saves them
+    in each folder ID in train folder. If an image has no instances,
+    saves it with a empty mask.
+    """
+    for tif_path in self.raster_tile_paths:
+        # for imgs with no instances, creates empty mask
+        # only runs connected comp if there is at least one instance
+        png_path = os.path.splitext(tif_path)[0] + ".png"
+        img_to_png(tif_path, png_path)
+    
+def labels_to_pngs():
+    """
+    Extracts individual instances into their own tif files. Saves them
+    in each folder ID in train folder. If an image has no instances,
+    saves it with a empty mask.
+    """
+    for tif_path in self.rasterized_label_paths:
+        # for imgs with no instances, creates empty mask
+        # only runs connected comp if there is at least one instance
+        png_path = os.path.splitext(tif_path)[0] + ".png"
+        label_to_png(tif_path, png_path)     

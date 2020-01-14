@@ -5,7 +5,7 @@ variable "location" {
 
 variable "vm_name" {
   description = "Name of the virtual machine (acts as prefix for all generated resources)"
-  default     = "dsvm"
+  default     = "ubuntu18vm"
 }
 
 variable "vm_type" {
@@ -63,11 +63,6 @@ variable "fileshare_name" {
   default     = ""
 }
 
-variable "lsru_config" {
-  description = "Path to the .lsru config gile on your local machine"
-  default     = ""
-}
-
 resource "azurerm_resource_group" "ds" {
   name     = var.vm_name
   location = var.location
@@ -107,18 +102,12 @@ resource "azurerm_virtual_machine" "ds" {
   network_interface_ids            = [azurerm_network_interface.ds.id]
   vm_size                          = var.vm_type
   delete_os_disk_on_termination    = true
-  delete_data_disks_on_termination = true
-
-  plan {
-    name      = "linuxdsvmubuntu"
-    publisher = "microsoft-ads"
-    product   = "linux-data-science-vm-ubuntu"
-  }
+  delete_data_disks_on_termination = false
 
   storage_image_reference {
-    publisher = "microsoft-ads"
-    offer     = "linux-data-science-vm-ubuntu"
-    sku       = "linuxdsvmubuntu"
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
     version   = "latest"
   }
 
@@ -127,15 +116,6 @@ resource "azurerm_virtual_machine" "ds" {
     caching           = "ReadWrite"
     create_option     = "FromImage"
     managed_disk_type = "Standard_LRS"
-  }
-
-  # Optional data disks  provisioner "file"{
-  storage_data_disk {
-    name              = "${var.vm_name}-data"
-    managed_disk_type = "Standard_LRS"
-    create_option     = "FromImage"
-    lun               = 0
-    disk_size_gb      = "120"
   }
 
   os_profile {
@@ -190,28 +170,11 @@ resource "null_resource" "ds" {
   }
 
   provisioner "local-exec" {
-    command = "echo ${azurerm_virtual_machine.ds.id} > .vm-id-mgpu"
+    command = "echo ${azurerm_virtual_machine.ds.id} > .vm-id-gpu"
   }
 
   provisioner "local-exec" {
-    command = "echo ${var.admin_user}@${azurerm_public_ip.ds.ip_address} > .vm-ip-mgpu"
-  }
-
-  provisioner "local-exec" {
-    command     = "make syncup"
-    working_dir = "../"
-  }
-
-  provisioner "file" {
-    source      = var.lsru_config
-    destination = "/home/${var.admin_user}/.lsru"
-
-    connection {
-      type        = "ssh"
-      user        = var.admin_user
-      private_key = file(var.admin_private_key)
-      host        = azurerm_public_ip.ds.ip_address
-    }
+    command = "echo ${var.admin_user}@${azurerm_public_ip.ds.ip_address} > .vm-ip-gpu"
   }
 }
 

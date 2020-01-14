@@ -11,11 +11,12 @@ import rioxarray
 from numpy import uint8
 from cropmask.label_prep import rio_bbox_to_polygon
 from cropmask.misc import parse_yaml, make_dirs, img_to_png, label_to_png
-from cropmask import sequential_grid, label_prep
+from cropmask import label_prep
 from cropmask import io_utils 
 from cropmask import coco_convert
 import solaris as sol
 from tqdm import tqdm
+import numpy as np
 
 def setup_dirs(param_path):
     """
@@ -34,15 +35,19 @@ def setup_dirs(param_path):
     DATASET = os.path.join(ROOT, params['dirs']["dataset"])
     SCENE = os.path.join(DATASET, "scene")
     TILES = os.path.join(DATASET, "tiles")
-    LABELS = os.path.join(DATASET, "tiles", "labels")
-    TRAIN = os.path.join(DATASET, "train")
+    COCO = os.path.join(DATASET, "coco")
+    image_tile_dir = os.path.join(TILES,"image_tiles")
+    geojson_tile_dir = os.path.join(TILES,"geojson_tiles")
+    label_tile_dir = os.path.join(TILES, "label_tiles")
 
     directory_list = [
             DATASET,
             SCENE,
-            TRAIN,
+            COCO,
             TILES,
-            LABELS
+            image_tile_dir,
+            geojson_tile_dir,
+            label_tile_dir 
         ]
     make_dirs(directory_list)
     return directory_list
@@ -63,14 +68,15 @@ class PreprocessWorkflow():
         self.ROOT = params['dirs']["root"]
         self.DATASET = os.path.join(self.ROOT, params['dirs']["dataset"])
         self.SCENE = os.path.join(self.DATASET, "scene")
-        self.TRAIN = os.path.join(self.DATASET, "train")
+        self.COCO = os.path.join(self.DATASET, "coco")
         self.TILES = os.path.join(self.DATASET, "tiles")
-        
+        self.image_tile_dir = os.path.join(self.TILES,"image_tiles")
+        self.geojson_tile_dir = os.path.join(self.TILES,"geojson_tiles")
+        self.label_tile_dir = os.path.join(self.TILES, "label_tiles")
         # scene specific paths and variables
         self.band_list = [] # the band indices
         self.meta = {} # meta data for the scene
         self.small_area_filter = params['label_vals']['small_area_filter']
-        self.neg_buffer = params['label_vals']['neg_buffer']
         self.ag_class_int = params['label_vals']['ag_class_int'] # TO DO, not implemented but needs to be for multi class
         self.dataset_name = params['image_vals']['dataset_name']
         self.grid_size = params['image_vals']['grid_size']
@@ -146,14 +152,18 @@ class PreprocessWorkflow():
         scene_arr.rio.to_raster(scene_path)
         return self
             
-    def negative_buffer_and_small_area_filter(self):
+    def filter_subset_vector_gdf(self):
         """For preprcoessing reference dataset"""
         shp_frame = gpd.read_file(self.source_label_path)
         shp_frame = shp_frame.to_crs(self.meta['crs'])
+        shp_frame.crs = shp_frame.crs.to_wkt()# geopandas can't save dfs with crs in rasterio format
         shp_frame = shp_frame.loc[shp_frame.geometry.area > self.small_area_filter]
-        shp_frame = shp_frame.buffer(self.neg_buffer)
+#         shp_frame = shp_frame.buffer(self.neg_buffer) don't need with solaris, can use exact vectors
         shp_series = shp_frame.loc[shp_frame.is_empty==False]
-        return gpd.GeoDataFrame(geometry=shp_series)
+        #shp_frame = gpd.GeoDataFrame(geometry=shp_series)
+        shp_frame = shp_frame.cx[self.bounds.left:self.bounds.right,self.bounds.bottom:self.bounds.top] # might need to clip geometries at nodata edges of image are filtered in instance_mask function
+        shp_frame.loc[shp_frame.is_valid==False, 'geometry'] = shp_frame[shp_frame.is_valid==False].buffer(0) # fix self intersections so that there is no topology error
+        return shp_frame
     
     def get_vector_bounds_poly(self):
         #specify zipped shapefile url
@@ -177,76 +187,48 @@ class PreprocessWorkflow():
 
         Returns rasterized labels that are ready to be gridded
         """
-        shp_frame = self.negative_buffer_and_small_area_filter()
-        self.image_tile_dir = os.path.join(self.TILES,"image_tiles")
+        shp_frame = self.filter_subset_vector_gdf()
+        
         bounds_poly= self.get_vector_bounds_poly()
         raster_tiler = sol.tile.raster_tile.RasterTiler(dest_dir=self.image_tile_dir,  # the directory to save images to
                                                 src_tile_size=(self.grid_size, self.grid_size),  # the size of the output chips
                                                 verbose=True,
-                                                aoi_boundary=bounds_poly)
-        raster_bounds_crs = raster_tiler.tile(self.scene_path)
-        shp_frame.crs = shp_frame.crs.to_wkt()# geopandas can't save dfs with crs in rasterio format
+                                                aoi_boundary=bounds_poly,
+                                                nodata= -9999.0)
+        raster_bounds_crs = raster_tiler.tile(self.scene_path, nodata_threshold=.05, restrict_to_aoi=True)
         
-        self.geojson_tile_dir = os.path.join(self.TILES,"geojson_tiles")
         vector_tiler = sol.tile.vector_tile.VectorTiler(dest_dir=self.geojson_tile_dir,
-                                                verbose=True)
-        vector_tiler.tile(shp_frame, tile_bounds=raster_tiler.tile_bounds)
+                                                verbose=True, dest_crs = raster_bounds_crs)
+        vector_tiler.tile(shp_frame, tile_bounds=raster_tiler.tile_bounds, tile_bounds_crs = raster_bounds_crs, dest_fname_base=os.path.basename(self.scene_path).split(".tif")[0])
         self.geojson_tile_paths = vector_tiler.tile_paths
         self.raster_tile_paths = raster_tiler.tile_paths
+        return self
         
     def geojsons_to_masks(self):
         self.rasterized_label_paths = []
+        print("starting label mask generation")
         for img_tile, geojson_tile in zip(tqdm(sorted(self.raster_tile_paths)), sorted(self.geojson_tile_paths)):
-            fid = geojson_tile.split(".geojson")[0]
-            rasterized_label_path = os.path.join(self.TILES, "labels", fid + ".tif")
+            fid = os.path.basename(geojson_tile).split(".geojson")[0]
+            rasterized_label_path = os.path.join(self.label_tile_dir, fid + ".tif")
             self.rasterized_label_paths.append(rasterized_label_path)
-            gdf = gpd.read_file(geojson_tile)
-            sol.vector.mask.instance_mask(gdf, out_file=rasterized_label_path, reference_im=img_tile, 
+            try:
+                gdf = gpd.read_file(geojson_tile)
+            except:
+                print(f"probably DriverError, check {geojson_tile} and {img_tile}")
+            arr = sol.vector.mask.instance_mask(gdf, out_file=rasterized_label_path, reference_im=img_tile, 
                                           geom_col='geometry', do_transform=None, 
                                           out_type='int', burn_value=1, burn_field=None) # https://github.com/CosmiQ/solaris/pull/262/files
-
-    
-    def imgs_to_pngs(self):
-        """
-        Extracts individual instances into their own tif files. Saves them
-        in each folder ID in train folder. If an image has no instances,
-        saves it with a empty mask.
-        """
-        for tif_path in self.chip_img_paths:
-            # for imgs with no instances, creates empty mask
-            # only runs connected comp if there is at least one instance
-            jpeg_path = os.path.splitext(tif_path)[0] + ".png"
-            img_to_png(tif_path, jpeg_path)
+            if not arr.any(): # in case no instances in a tile we save it with "empty" at the front of the basename
+                with rasterio.open(img_tile) as reference_im:
+                    meta = reference_im.meta.copy()
+                    reference_im.close()
+                meta.update(count=1)
+                meta.update(dtype='uint8')
+                if isinstance(meta['nodata'], float):
+                    meta.update(nodata=0)
+                rasterized_label_path = os.path.join(self.label_tile_dir, "empty_" + fid + ".tif")
+                with rasterio.open(rasterized_label_path, 'w', **meta) as dst:
+                    dst.write(np.expand_dims(arr, axis=0))
+                    dst.close()
             
         return self
-    
-    def labels_to_pngs(self):
-        """
-        Extracts individual instances into their own tif files. Saves them
-        in each folder ID in train folder. If an image has no instances,
-        saves it with a empty mask.
-        """
-        for tif_path in self.chip_label_paths:
-            # for imgs with no instances, creates empty mask
-            # only runs connected comp if there is at least one instance
-            jpeg_path = os.path.splitext(tif_path)[0] + ".png"
-            label_to_png(tif_path, jpeg_path)
-            
-        return self
-
-    def run_single_scene(self):
-    
-        band_list = self.yaml_to_band_index()
-        
-        product_list = self.get_product_paths(band_list)
-        
-        self.load_meta_and_bounds(product_list)
-        
-        self.stack_and_save_bands()
-        
-        self.negative_buffer_and_small_filter(-31, 100)
-        
-        self.tile_scene_and_vector()
-        
-        # train test split is done outside of this function to accomodate multiple scenes
-        

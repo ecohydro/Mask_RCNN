@@ -1,9 +1,9 @@
 dirs:
-    root: /mnt/cropmaskperm/
-    dataset: /mnt/cropmaskperm/test-ard-source-scenes/chips # rename this based on the imagery and labels
+    root: /datadrive
+    dataset: test-ard-june-sept-nirrg # rename this based on where the folders with imagery and labels are located
 landsat_bands_to_include:
-    - blue: true
+    - blue: false
     - green: true
     - red: true
-    - near-IR : false
+    - near-IR : true
 seed: 42
