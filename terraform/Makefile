@@ -53,7 +53,7 @@ status-gpu:
 
 # ssh into machine and forward jupyter port
 ssh-gpu:
-		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN_GPU}
+		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 -L 6006:localhost:6006 -L 8787:localhost:8787 ${VM_CONN_GPU}
 
 VM_ID_MGPU=$(shell cat ${PATH_VM_ID_MGPU}) # Azure resource ID
 VM_CONN_MGPU=$(shell cat ${PATH_VM_IP_MGPU}) # user@IP
