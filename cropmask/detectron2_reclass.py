@@ -28,7 +28,7 @@ from detectron2.data.build import (
     trivial_batch_collator
 )  # it's hidden by _all_  in build.py :(
 from detectron2.data import transforms as T
-from detectron2.engine import DefaultTrainer
+from detectron2.engine import DefaultTrainer, hooks
 from detectron2.evaluation import COCOEvaluator, DatasetEvaluators
 import torch
 
@@ -147,6 +147,21 @@ def build_detection_validation_loader(cfg, mapper=None):
 
     return data_loader
 
+def run_validation_step(self):
+    """
+    Added to write out validation metrics. Used as a CallbackHook in 
+    the after_step stage in Trainer.build_hooks().
+    """
+    if (self.iter % self.cfg.VALIDATION_PERIOD) == 0:
+        validation_data = next(self.validation_data_loader_iter)
+        val_losses_dict = self.model(validation_data)
+        val_losses = sum(loss for loss in val_losses_dict.values())
+        self._detect_anomaly(val_losses, val_losses_dict)
+
+        val_metrics_dict = val_losses_dict
+        val_metrics_dict["data_time"] = data_time
+        self._write_validation_metrics(val_metrics_dict)
+
 
 class Trainer(DefaultTrainer):
     """
@@ -182,53 +197,53 @@ class Trainer(DefaultTrainer):
     def build_train_loader(cls, cfg):
         return build_detection_train_loader(cfg, mapper=tif_dataset_mapper)
 
-    def run_step(self):
+    def build_hooks(self):
         """
-        Implement the standard training logic described above.
+        Build a list of hooks, including timing, evaluation,
+        checkpointing, lr scheduling, precise BN, writing events. This overwrites
+        DefaultTrainer's build_hooks.
+        Returns:
+            list[HookBase]:
         """
-        assert self.model.training, "[SimpleTrainer] model was changed to eval mode!"
-        start = time.perf_counter()
-        """
-        If your want to do something with the data, you can wrap the dataloader.
-        """
-        data = next(self._data_loader_iter)
-        data_time = time.perf_counter() - start
+        cfg = self.cfg.clone()
+        cfg.defrost()
+        cfg.DATALOADER.NUM_WORKERS = 0  # save some memory and time for PreciseBN
 
-        """
-        If your want to do something with the losses, you can wrap the model.
-        """
-        loss_dict = self.model(data)
-        losses = sum(loss for loss in loss_dict.values())
-        self._detect_anomaly(losses, loss_dict)
+        ret = [
+            hooks.IterationTimer(),
+            hooks.LRScheduler(self.optimizer, self.scheduler),
+            hooks.PreciseBN(
+                # Run at the same freq as (but before) evaluation.
+                cfg.TEST.EVAL_PERIOD,
+                self.model,
+                # Build a new data loader to not affect training
+                self.build_train_loader(cfg),
+                cfg.TEST.PRECISE_BN.NUM_ITER,
+            )
+            if cfg.TEST.PRECISE_BN.ENABLED and get_bn_modules(self.model)
+            else None,
+            hooks.CallbackHook(after_train=run_validation_step),
+        ]
 
-        metrics_dict = loss_dict
-        metrics_dict["data_time"] = data_time
-        self._write_metrics(metrics_dict)
+        # Do PreciseBN before checkpointer, because it updates the model and need to
+        # be saved by checkpointer.
+        # This is not always the best: if checkpointing has a different frequency,
+        # some checkpoints may have more precise statistics than others.
+        if comm.is_main_process():
+            ret.append(hooks.PeriodicCheckpointer(self.checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD))
 
-        """
-        Added to write out validation metrics.
-        """
-        validation_data = next(self.validation_data_loader_iter)
-        val_losses_dict = self.model(validation_data)
-        val_losses = sum(loss for loss in val_losses_dict.values())
-        self._detect_anomaly(val_losses, val_losses_dict)
+        def test_and_save_results():
+            self._last_eval_results = self.test(self.cfg, self.model)
+            return self._last_eval_results
 
-        val_metrics_dict = val_losses_dict
-        val_metrics_dict["data_time"] = data_time
-        self._write_validation_metrics(val_metrics_dict)
+        # Do evaluation after checkpointer, because then if it fails,
+        # we can use the saved checkpoint to debug.
+        ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD, test_and_save_results))
 
-        """
-        If you need accumulate gradients or something similar, you can
-        wrap the optimizer with your custom `zero_grad()` method.
-        """
-        self.optimizer.zero_grad()
-        losses.backward()
-
-        """
-        If you need gradient clipping/scaling or other processing, you can
-        wrap the optimizer with your custom `step()` method.
-        """
-        self.optimizer.step()
+        if comm.is_main_process():
+            # run writers in the end, so that evaluation metrics are written
+            ret.append(hooks.PeriodicWriter(self.build_writers()))
+        return ret
 
     def _write_validation_metrics(self, metrics_dict: dict):
         """
@@ -255,11 +270,11 @@ class Trainer(DefaultTrainer):
             # average the rest metrics. val added to metric key names
             # compared to original _write_metrics func in train_loop.py
             metrics_dict = {
-                "val_" + k: np.mean([x[k] for x in all_metrics_dict])
+                k+"/val": np.mean([x[k] for x in all_metrics_dict])
                 for k in all_metrics_dict[0].keys()
             }
             total_losses_reduced = sum(loss for loss in metrics_dict.values())
 
-            self.storage.put_scalar("val_total_loss", total_losses_reduced)
+            self.storage.put_scalar("total_loss/val", total_losses_reduced)
             if len(metrics_dict) > 1:
                 self.storage.put_scalars(**metrics_dict)
