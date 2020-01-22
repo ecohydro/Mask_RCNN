@@ -1,8 +1,8 @@
 # This contains inherited classes from detectron2, which were defined witht he detectron2 version on January 21, 2019.
 # the changes are made to allow for logging valdiation set metrics during training and to allow for a custom data loader for tif imagery.
 
-from detectron2.data import build_detection_train_loader
-from detectron2.data import build_detection_test_loader
+from detectron2.data import build_detection_train_loader, build_detection_test_loader
+import detectron2.data #for get_world_size and other things for valdiation loader
 from detectron2.data import transforms as T
 from detectron2.data import detection_utils as utils
 from detectron2.engine import DefaultTrainer
@@ -139,7 +139,7 @@ class Trainer(DefaultTrainer):
         return build_detection_test_loader(cfg, dataset_name, mapper=tif_dataset_mapper)
     
     @classmethod
-    def build_validation_loader(cls, cfg, dataset_name):
+    def build_validation_loader(cls, cfg):
         return build_detection_validation_loader(cfg, mapper=tif_dataset_mapper)
 
     @classmethod

@@ -11,6 +11,7 @@ from pycococreatortools import pycococreatortools
 import cropmask.misc as misc
 from shutil import copyfile
 import pandas as pd
+import solaris as sol
 from sklearn.model_selection import train_test_split
 
 # funcs derived from https://github.com/waspinator/pycococreator/blob/d29534e36aad6c30d7e4dadd9f4f7b0e344a774c/pycococreatortools/pycococreatortools.py
@@ -26,16 +27,14 @@ def create_coco_meta():
         "date_created": datetime.datetime.utcnow().isoformat(' ')
     }
 
-    LICENSE_DICT = [
-        {
+    LICENSE_DICT = {
             "name": "Attribution-NonCommercial-ShareAlike License",
             "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/"
         }
-    ]
 
     PRESET_CATEGORIES = [
         {
-            'id': 1,
+            "id": 1,
             'name': 'center pivot',
             'supercategory': 'agriculture',
         },
@@ -86,16 +85,14 @@ def create_coco_dataset(df):
     """
     img_lst = df['image_tiles'].to_list()
     geojson_lst = df['geojson_tiles'].to_list()
-    info, license, preset_categories = create_coco_meta()
+    info, license, preset_categories = create_coco_meta() # preset cats unused for now, unsure how to properly work this with detectron
     # crazy regex is based on appending scene ID to each tile, including path/row and date info
     coco_dict = sol.data.coco.geojson2coco(image_src = [str(i) for i in img_lst],
                                        label_src = [str(i) for i in geojson_lst],
                                        matching_re=r'(\d{6}_\d{8}_\d{8}_C\d{2}_V\d_-?\d+_\d+)',
-                                       license_dict={'CC-BY 4.0': 'https://creativecommons.org/licenses/by/4.0/'},
                                        remove_all_multipolygons = True,
                                        info_dict = info,
                                        license_dict = license,
-                                       preset_categories = [preset_categories]
                                        verbose=0)
     return coco_dict
 
