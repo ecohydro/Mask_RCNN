@@ -159,7 +159,7 @@ def run_validation_step(self):
         self._detect_anomaly(val_losses, val_losses_dict)
 
         val_metrics_dict = val_losses_dict
-        val_metrics_dict["data_time"] = data_time
+#         val_metrics_dict["data_time"] = data_time
         self._write_validation_metrics(val_metrics_dict)
 
 
@@ -197,53 +197,52 @@ class Trainer(DefaultTrainer):
     def build_train_loader(cls, cfg):
         return build_detection_train_loader(cfg, mapper=tif_dataset_mapper)
 
-    def build_hooks(self):
+    
+    def run_step(self):
         """
-        Build a list of hooks, including timing, evaluation,
-        checkpointing, lr scheduling, precise BN, writing events. This overwrites
-        DefaultTrainer's build_hooks.
-        Returns:
-            list[HookBase]:
+        Implement the standard training logic described above.
         """
-        cfg = self.cfg.clone()
-        cfg.defrost()
-        cfg.DATALOADER.NUM_WORKERS = 0  # save some memory and time for PreciseBN
+        assert self.model.training, "[SimpleTrainer] model was changed to eval mode!"
+        start = time.perf_counter()
+        """
+        If your want to do something with the data, you can wrap the dataloader.
+        """
+        data = next(self._data_loader_iter)
+        data_time = time.perf_counter() - start
 
-        ret = [
-            hooks.IterationTimer(),
-            hooks.LRScheduler(self.optimizer, self.scheduler),
-            hooks.PreciseBN(
-                # Run at the same freq as (but before) evaluation.
-                cfg.TEST.EVAL_PERIOD,
-                self.model,
-                # Build a new data loader to not affect training
-                self.build_train_loader(cfg),
-                cfg.TEST.PRECISE_BN.NUM_ITER,
-            )
-            if cfg.TEST.PRECISE_BN.ENABLED and get_bn_modules(self.model)
-            else None,
-            hooks.CallbackHook(after_train=run_validation_step),
-        ]
+        """
+        If your want to do something with the losses, you can wrap the model.
+        """
+        loss_dict = self.model(data)
+        losses = sum(loss for loss in loss_dict.values())
+        self._detect_anomaly(losses, loss_dict)
 
-        # Do PreciseBN before checkpointer, because it updates the model and need to
-        # be saved by checkpointer.
-        # This is not always the best: if checkpointing has a different frequency,
-        # some checkpoints may have more precise statistics than others.
-        if comm.is_main_process():
-            ret.append(hooks.PeriodicCheckpointer(self.checkpointer, cfg.SOLVER.CHECKPOINT_PERIOD))
+        metrics_dict = loss_dict
+        metrics_dict["data_time"] = data_time
+        self._write_metrics(metrics_dict)
+        
+        validation_data = next(self.validation_data_loader_iter)
+        val_losses_dict = self.model(validation_data)
+        val_losses = sum(loss for loss in val_losses_dict.values())
+        self._detect_anomaly(val_losses, val_losses_dict)
 
-        def test_and_save_results():
-            self._last_eval_results = self.test(self.cfg, self.model)
-            return self._last_eval_results
+        val_metrics_dict = val_losses_dict
+        val_metrics_dict["data_time"] = data_time
+        self._write_validation_metrics(val_metrics_dict)
 
-        # Do evaluation after checkpointer, because then if it fails,
-        # we can use the saved checkpoint to debug.
-        ret.append(hooks.EvalHook(cfg.TEST.EVAL_PERIOD, test_and_save_results))
+        """
+        If you need accumulate gradients or something similar, you can
+        wrap the optimizer with your custom `zero_grad()` method.
+        """
+        self.optimizer.zero_grad()
+        losses.backward()
 
-        if comm.is_main_process():
-            # run writers in the end, so that evaluation metrics are written
-            ret.append(hooks.PeriodicWriter(self.build_writers()))
-        return ret
+        """
+        If you need gradient clipping/scaling or other processing, you can
+        wrap the optimizer with your custom `step()` method.
+        """
+        self.optimizer.step()
+
 
     def _write_validation_metrics(self, metrics_dict: dict):
         """
@@ -261,16 +260,14 @@ class Trainer(DefaultTrainer):
 
         if comm.is_main_process():
             if "data_time" in all_metrics_dict[0]:
-                # data_time among workers can have high variance. The actual latency
-                # caused by data_time is the maximum among workers.
-                data_time = np.max([x.pop("data_time")
-                                    for x in all_metrics_dict])
+            # data_time among workers can have high variance. The actual latency
+            # caused by data_time is the maximum among workers.
+                data_time = np.max([x.pop("data_time") for x in all_metrics_dict])
                 self.storage.put_scalar("data_time", data_time)
-
             # average the rest metrics. val added to metric key names
             # compared to original _write_metrics func in train_loop.py
             metrics_dict = {
-                k+"/val": np.mean([x[k] for x in all_metrics_dict])
+                "val_"+k: np.mean([x[k] for x in all_metrics_dict])
                 for k in all_metrics_dict[0].keys()
             }
             total_losses_reduced = sum(loss for loss in metrics_dict.values())
@@ -278,3 +275,36 @@ class Trainer(DefaultTrainer):
             self.storage.put_scalar("total_loss/val", total_losses_reduced)
             if len(metrics_dict) > 1:
                 self.storage.put_scalars(**metrics_dict)
+    
+    
+    def _write_metrics(self, metrics_dict: dict):
+        """
+        Args:
+            metrics_dict (dict): dict of scalar metrics
+        """
+        metrics_dict = {
+            k: v.detach().cpu().item() if isinstance(v, torch.Tensor) else float(v)
+            for k, v in metrics_dict.items()
+        }
+        # gather metrics among all workers for logging
+        # This assumes we do DDP-style training, which is currently the only
+        # supported method in detectron2.
+        all_metrics_dict = comm.gather(metrics_dict)
+
+        if comm.is_main_process():
+            if "data_time" in all_metrics_dict[0]:
+                # data_time among workers can have high variance. The actual latency
+                # caused by data_time is the maximum among workers.
+                data_time = np.max([x.pop("data_time") for x in all_metrics_dict])
+                self.storage.put_scalar("data_time", data_time)
+
+            # average the rest metrics
+            metrics_dict = {
+                "train_"+k: np.mean([x[k] for x in all_metrics_dict]) for k in all_metrics_dict[0].keys()
+            }
+            total_losses_reduced = sum(loss for loss in metrics_dict.values())
+
+            self.storage.put_scalar("total_loss/train", total_losses_reduced)
+            if len(metrics_dict) > 1:
+                self.storage.put_scalars(**metrics_dict)
+                

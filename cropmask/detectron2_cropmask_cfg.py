@@ -1,4 +1,5 @@
 from detectron2.config import get_cfg
+from detectron2 import model_zoo
 
 cfg = get_cfg()
 cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
@@ -16,7 +17,7 @@ cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512   # this is the default
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # only has one class 
 cfg.TEST.EVAL_PERIOD = 0 # the period in terms of steps to evaluate the model on the test set by computing AP statistics, but should be edited to run on val set.
 cfg.SOLVER.CHECKPOINT_PERIOD = 800
-cfg.VALIDATION_PERIOD = 40
+cfg.VALIDATION_PERIOD = 20
 cfg.OUTPUT_DIR = "/home/ryan/work/cropmask_experiments/test1"
 cfg.CUDNN_BENCHMARK = False # might cause speed gains since all images are same size if set to True (default is False)
 cfg.INPUT.FORMAT = "RGB"
