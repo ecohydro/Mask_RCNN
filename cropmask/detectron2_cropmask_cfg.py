@@ -10,8 +10,8 @@ cfg.DATASETS.TEST = ("test_nirrg",)
 # https://github.com/facebookresearch/detectron2/blob/dfc678a0aa6aaaae4e925877fe9f653edf627c86/detectron2/config/defaults.py
 cfg.DATALOADER.NUM_WORKERS = 2
 cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
-cfg.SOLVER.IMS_PER_BATCH = 4
-cfg.SOLVER.BASE_LR = 0.00025  # pick a good LR
+cfg.SOLVER.IMS_PER_BATCH = 24
+cfg.SOLVER.BASE_LR = 0.0003  # pick a good LR
 cfg.SOLVER.MAX_ITER = 4000 
 cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512   # this is the default
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # only has one class 
