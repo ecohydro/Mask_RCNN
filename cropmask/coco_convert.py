@@ -93,6 +93,7 @@ def create_coco_dataset(df):
                                        remove_all_multipolygons = True,
                                        info_dict = info,
                                        license_dict = license,
+                                       override_crs=True,
                                        verbose=0)
     return coco_dict
 
@@ -100,3 +101,5 @@ def save_coco_annotation(outpath, coco_output):
     with open(outpath, 'w') as output_json_file:
         json.dump(coco_output, output_json_file)
     print(f"{os.path.basename(outpath)}"+" saved.")
+    
+    

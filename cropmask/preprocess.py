@@ -190,18 +190,18 @@ class PreprocessWorkflow():
         shp_frame = self.filter_subset_vector_gdf()
         
         bounds_poly= self.get_vector_bounds_poly()
-        raster_tiler = sol.tile.raster_tile.RasterTiler(dest_dir=self.image_tile_dir,  # the directory to save images to
+        self.raster_tiler = sol.tile.raster_tile.RasterTiler(dest_dir=self.image_tile_dir,  # the directory to save images to
                                                 src_tile_size=(self.grid_size, self.grid_size),  # the size of the output chips
                                                 verbose=True,
                                                 aoi_boundary=bounds_poly,
                                                 nodata= -9999.0)
-        raster_bounds_crs = raster_tiler.tile(self.scene_path, nodata_threshold=.05, restrict_to_aoi=True)
+        self.raster_bounds_crs = self.raster_tiler.tile(self.scene_path, restrict_to_aoi=True, nodata_threshold = .60)
         
-        vector_tiler = sol.tile.vector_tile.VectorTiler(dest_dir=self.geojson_tile_dir,
-                                                verbose=True, dest_crs = raster_bounds_crs)
-        vector_tiler.tile(shp_frame, tile_bounds=raster_tiler.tile_bounds, tile_bounds_crs = raster_bounds_crs, dest_fname_base=os.path.basename(self.scene_path).split(".tif")[0])
-        self.geojson_tile_paths = vector_tiler.tile_paths
-        self.raster_tile_paths = raster_tiler.tile_paths
+        self.vector_tiler = sol.tile.vector_tile.VectorTiler(dest_dir=self.geojson_tile_dir,
+                                                verbose=True) # check crs messes up non epsg crs if dest_Crs is set in instance creation of vector tiler
+        self.vector_tiler.tile(shp_frame, tile_bounds=self.raster_tiler.tile_bounds, tile_bounds_crs = self.raster_bounds_crs, dest_fname_base=os.path.basename(self.scene_path).split(".tif")[0])
+        self.geojson_tile_paths = self.vector_tiler.tile_paths
+        self.raster_tile_paths = self.raster_tiler.tile_paths
         return self
         
     def geojsons_to_masks(self):
@@ -215,6 +215,7 @@ class PreprocessWorkflow():
                 gdf = gpd.read_file(geojson_tile)
             except:
                 print(f"probably DriverError, check {geojson_tile} and {img_tile}")
+            gdf.crs = self.raster_bounds_crs # add this because gdfs can't be saved with wkt crs
             arr = sol.vector.mask.instance_mask(gdf, out_file=rasterized_label_path, reference_im=img_tile, 
                                           geom_col='geometry', do_transform=None, 
                                           out_type='int', burn_value=1, burn_field=None) # https://github.com/CosmiQ/solaris/pull/262/files
@@ -227,8 +228,11 @@ class PreprocessWorkflow():
                 if isinstance(meta['nodata'], float):
                     meta.update(nodata=0)
                 rasterized_label_path = os.path.join(self.label_tile_dir, "empty_" + fid + ".tif")
+                if arr.shape[-1] is not self.grid_size: # hack, allows saving of single band empty mask where instances were removed
+                    arr = arr[:,:,0]
                 with rasterio.open(rasterized_label_path, 'w', **meta) as dst:
                     dst.write(np.expand_dims(arr, axis=0))
                     dst.close()
+        self.raster_tiler.fill_all_nodata("mean") # after generating label masks that are set to 0 where there is nodata, fill the nodata with mean
             
         return self
