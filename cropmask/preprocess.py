@@ -5,6 +5,8 @@ import warnings
 import geopandas as gpd
 from rasterio import features
 import rasterio
+from shapely.ops import unary_union
+from shapely.geometry import shape
 import us
 import xarray
 import rioxarray
@@ -152,24 +154,47 @@ class PreprocessWorkflow():
         scene_arr.rio.to_raster(scene_path)
         return self
             
-    def filter_subset_vector_gdf(self):
+    def filter_subset_vector_gdf(self, bounds_gdf):
         """For preprcoessing reference dataset"""
         shp_frame = gpd.read_file(self.source_label_path)
         shp_frame = shp_frame.to_crs(self.meta['crs'])
         shp_frame.crs = shp_frame.crs.to_wkt()# geopandas can't save dfs with crs in rasterio format
         shp_frame = shp_frame.loc[shp_frame.geometry.area > self.small_area_filter]
-#         shp_frame = shp_frame.buffer(self.neg_buffer) don't need with solaris, can use exact vectors
         shp_series = shp_frame.loc[shp_frame.is_empty==False]
-        #shp_frame = gpd.GeoDataFrame(geometry=shp_series)
-        shp_frame = shp_frame.cx[self.bounds.left:self.bounds.right,self.bounds.bottom:self.bounds.top] # might need to clip geometries at nodata edges of image are filtered in instance_mask function
+        shp_frame = shp_frame.cx[self.bounds.left:self.bounds.right,self.bounds.bottom:self.bounds.top] # reduces computation to only operate on labels intersecting image
+        shp_frame = self.subtract_no_data_regions(shp_frame, bounds_gdf)
         shp_frame.loc[shp_frame.is_valid==False, 'geometry'] = shp_frame[shp_frame.is_valid==False].buffer(0) # fix self intersections so that there is no topology error
+        return shp_frame
+    
+    def subtract_no_data_regions(self, shp_frame, bounds_gdf):
+        src = rasterio.open(self.scene_path)
+        
+        #removing labels by nodata boundaries in image
+        polys = list(rasterio.features.shapes(src.read(), mask=(src.read() == src.nodata), connectivity=4, transform=src.transform))
+        nodata_shapes = [shape(poly[0]) for poly in polys]
+        boundary = gpd.GeoDataFrame(geometry=[unary_union(nodata_shapes)])
+        src.close()
+        shp_frame = gpd.overlay(shp_frame, boundary, how='difference')
+        
+        # removing labels by aoi boundary
+        bounds_gdf_edge = bounds_gdf.copy()
+        bounds_gdf_edge['geometry'] = bounds_gdf_edge.geometry.buffer(5000)
+        bounds_gdf_edge = gpd.overlay(bounds_gdf_edge, bounds_gdf, how='difference')
+        shp_frame = gpd.overlay(shp_frame, bounds_gdf_edge, how='difference')
+        
+        # removing labels by boundaries of image
+        im_box_gdf = gpd.GeoDataFrame(geometry = [box(self.bounds.left, self.bounds.right, self.bounds.bottom, self.bounds.top)])
+        im_box_edge = im_box_gdf.copy()
+        im_box_edge['geometry'] = im_box_gdf.geometry.buffer(5000)
+        im_box_edge = gpd.overlay(im_box_edge, im_box_gdf, how='difference')
+        shp_frame = gpd.overlay(shp_frame, im_box_edge, how='difference')
         return shp_frame
     
     def get_vector_bounds_poly(self):
         #specify zipped shapefile url
         nebraska_url = us.states.NE.shapefile_urls('state')
         gdf = io_utils.zipped_shp_url_to_gdf (nebraska_url)
-        return gdf.to_crs(self.meta['crs'])['geometry'].iloc[0]
+        return gdf.to_crs(self.meta['crs'])
             
     def tile_scene_and_vector(self):
         """
@@ -187,9 +212,10 @@ class PreprocessWorkflow():
 
         Returns rasterized labels that are ready to be gridded
         """
-        shp_frame = self.filter_subset_vector_gdf()
+        bounds_gdf= self.get_vector_bounds_poly()
+        bounds_poly = bounds_gdf['geometry'].iloc[0]
+        shp_frame = self.filter_subset_vector_gdf(bounds_gdf)
         
-        bounds_poly= self.get_vector_bounds_poly()
         self.raster_tiler = sol.tile.raster_tile.RasterTiler(dest_dir=self.image_tile_dir,  # the directory to save images to
                                                 src_tile_size=(self.grid_size, self.grid_size),  # the size of the output chips
                                                 verbose=True,
@@ -217,8 +243,9 @@ class PreprocessWorkflow():
                 print(f"probably DriverError, check {geojson_tile} and {img_tile}")
             gdf.crs = self.raster_bounds_crs # add this because gdfs can't be saved with wkt crs
             arr = sol.vector.mask.instance_mask(gdf, out_file=rasterized_label_path, reference_im=img_tile, 
-                                          geom_col='geometry', do_transform=None, 
-                                          out_type='int', burn_value=1, burn_field=None) # https://github.com/CosmiQ/solaris/pull/262/files
+                                          geom_col='geometry', do_transform=None,
+                                          out_type='int', burn_value=1, burn_field=None) # this saves the file, unless it is empty in which case we deal with it below.
+            print(arr.any())
             if not arr.any(): # in case no instances in a tile we save it with "empty" at the front of the basename
                 with rasterio.open(img_tile) as reference_im:
                     meta = reference_im.meta.copy()
@@ -228,8 +255,6 @@ class PreprocessWorkflow():
                 if isinstance(meta['nodata'], float):
                     meta.update(nodata=0)
                 rasterized_label_path = os.path.join(self.label_tile_dir, "empty_" + fid + ".tif")
-                if arr.shape[-1] is not self.grid_size: # hack, allows saving of single band empty mask where instances were removed
-                    arr = arr[:,:,0]
                 with rasterio.open(rasterized_label_path, 'w', **meta) as dst:
                     dst.write(np.expand_dims(arr, axis=0))
                     dst.close()
