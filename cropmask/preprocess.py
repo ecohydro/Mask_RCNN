@@ -6,7 +6,7 @@ import geopandas as gpd
 from rasterio import features
 import rasterio
 from shapely.ops import unary_union
-from shapely.geometry import shape
+from shapely.geometry import shape, box
 import us
 import xarray
 import rioxarray
@@ -159,10 +159,10 @@ class PreprocessWorkflow():
         shp_frame = gpd.read_file(self.source_label_path)
         shp_frame = shp_frame.to_crs(self.meta['crs'])
         shp_frame.crs = shp_frame.crs.to_wkt()# geopandas can't save dfs with crs in rasterio format
-        shp_frame = shp_frame.loc[shp_frame.geometry.area > self.small_area_filter]
-        shp_series = shp_frame.loc[shp_frame.is_empty==False]
         shp_frame = shp_frame.cx[self.bounds.left:self.bounds.right,self.bounds.bottom:self.bounds.top] # reduces computation to only operate on labels intersecting image
         shp_frame = self.subtract_no_data_regions(shp_frame, bounds_gdf)
+        shp_frame = shp_frame.loc[shp_frame.geometry.area > self.small_area_filter]
+        shp_series = shp_frame.loc[shp_frame.is_empty==False]
         shp_frame.loc[shp_frame.is_valid==False, 'geometry'] = shp_frame[shp_frame.is_valid==False].buffer(0) # fix self intersections so that there is no topology error
         return shp_frame
     
@@ -183,7 +183,7 @@ class PreprocessWorkflow():
         shp_frame = gpd.overlay(shp_frame, bounds_gdf_edge, how='difference')
         
         # removing labels by boundaries of image
-        im_box_gdf = gpd.GeoDataFrame(geometry = [box(self.bounds.left, self.bounds.right, self.bounds.bottom, self.bounds.top)])
+        im_box_gdf = gpd.GeoDataFrame(geometry = [box(self.bounds.left, self.bounds.bottom, self.bounds.right, self.bounds.top)], crs = src.crs)
         im_box_edge = im_box_gdf.copy()
         im_box_edge['geometry'] = im_box_gdf.geometry.buffer(5000)
         im_box_edge = gpd.overlay(im_box_edge, im_box_gdf, how='difference')
@@ -245,7 +245,6 @@ class PreprocessWorkflow():
             arr = sol.vector.mask.instance_mask(gdf, out_file=rasterized_label_path, reference_im=img_tile, 
                                           geom_col='geometry', do_transform=None,
                                           out_type='int', burn_value=1, burn_field=None) # this saves the file, unless it is empty in which case we deal with it below.
-            print(arr.any())
             if not arr.any(): # in case no instances in a tile we save it with "empty" at the front of the basename
                 with rasterio.open(img_tile) as reference_im:
                     meta = reference_im.meta.copy()
@@ -258,6 +257,5 @@ class PreprocessWorkflow():
                 with rasterio.open(rasterized_label_path, 'w', **meta) as dst:
                     dst.write(np.expand_dims(arr, axis=0))
                     dst.close()
-        self.raster_tiler.fill_all_nodata("mean") # after generating label masks that are set to 0 where there is nodata, fill the nodata with mean
-            
-        return self
+        return self.raster_tiler.fill_all_nodata("mean") # after generating label masks that are set to 0 where there is nodata, fill the nodata with mean       
+#         return self for debugging
