@@ -22,8 +22,8 @@ cfg.OUTPUT_DIR = "/home/ryan/work/cropmask_experiments/test1"
 cfg.CUDNN_BENCHMARK = False # might cause speed gains since all images are same size if set to True (default is False)
 cfg.INPUT.FORMAT = "RGB"
 # Default values are the mean pixel value from ImageNet: [103.53, 116.28, 123.675]
-cfg.MODEL.PIXEL_MEAN = [103.530, 116.280, 123.675]
+cfg.MODEL.PIXEL_MEAN = [ 931.90757125, 1001.46930161, 2793.30379383]
 # When using pre-trained models in Detectron1 or any MSRA models,
 # std has been absorbed into its conv1 weights, so the std needs to be set 1.
 # Otherwise, you can use [57.375, 57.120, 58.395] (ImageNet std)
-cfg.MODEL.PIXEL_STD = [1.0, 1.0, 1.0]
+cfg.MODEL.PIXEL_STD = [262.82447442, 340.61644907, 559.11205354]
