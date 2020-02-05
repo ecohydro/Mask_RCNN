@@ -14,18 +14,16 @@ from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog
 from detectron2.data.datasets import register_coco_instances, load_coco_json
 
-from cropmask.misc import parse_yaml, make_dirs
+from cropmask.misc import make_dirs
 from cropmask.coco_convert import split_save_train_validation_test_df, save_coco_annotation, create_coco_dataset
 from cropmask import detectron2_reclass # fair amount of stuff goes on in here to make detectron work for this project.
+from cropmask.detectron2_cropmask_cfg import cfg
 
 def setup_register_load_inputs(cfg):
-    param_path = "/home/ryan/work/CropMask_RCNN/test_inspection_config.yaml"
-    params = parse_yaml(param_path)
-    tiles_path = Path(os.path.join(params['dirs']['root'], params['dirs']['dataset'], "tiles"))
-
+    tiles_path = Path(cfg.DATASET_PATH) / "tiles"
     train, validation, test = split_save_train_validation_test_df(tiles_path, save_empty_tiles=False)
-    coco_path = Path(params['dirs']['root']) / params['dirs']['dataset'] / "coco"
-
+    
+    coco_path = Path(cfg.DATASET_PATH) / "coco"
     train_coco_instances_path = str(coco_path / "instances_train.json")
     val_coco_instances_path = str(coco_path / "instances_val.json")
     test_coco_instances_path = str(coco_path / "instances_test.json")
@@ -45,16 +43,20 @@ def setup_register_load_inputs(cfg):
     val_json = load_coco_json(val_coco_instances_path,  str(next(tiles_path.glob("*image*"))))
     test_json = load_coco_json(test_coco_instances_path,  str(next(tiles_path.glob("*image*"))))
 
+def save_cfg(cfg):
+    os.mkdir(cfg.OUTPUT_DIR)
+    with open(Path(cfg.OUTPUT_DIR) / cfg.CONFIG_NAME, "w") as f: 
+        f.write(cfg.dump()) 
+
 def main():
-    from cropmask.detectron2_cropmask_cfg import cfg
-    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-    setup_register_load_inputs(cfg)
+    setup_register_load_inputs(cfg) # if this ain't here the multigpu can't find registered datasets
     trainer = detectron2_reclass.Trainer(cfg)
     trainer.resume_or_load(resume=False)
     return trainer.train()
 
 if __name__ == "__main__":
     args = default_argument_parser().parse_args()
+    save_cfg(cfg)
     print("Command Line Args:", args)
     launch(
         main,

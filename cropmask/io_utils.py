@@ -22,7 +22,7 @@ def open_rasterio_lsr(path):
     """
     
     band_int = int(os.path.splitext(path)[0][-1])
-    data_array = xr.open_rasterio(path, chunks={'band': 1}) #chunks makes i lazyily executed
+    data_array = rioxarray.open_rasterio(path, chunks={'band': 1}) #chunks makes i lazyily executed
     band_val = data_array['band']
     band_val.data = np.array((band_int, ))
     return data_array
