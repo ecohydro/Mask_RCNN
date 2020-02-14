@@ -1,45 +1,49 @@
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
 
+# config URLs
+
+
 cfg = get_cfg()
 cfg.CONFIG_NAME = "config.yaml"
 cfg.DATASET_PATH = "/datadrive/test-ard-june-sept-nirrg"
-cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
-cfg.DATASETS.VALIDATION = ("validation",) # added after subclassing Default Trainer above in order to plot validtion loss curves during training. need to do 3 way split and register validation
+cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")) #COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml
+# added after subclassing Default Trainer above in order to plot validtion loss curves during training
+cfg.DATASETS.VALIDATION = ("validation",) 
 cfg.DATASETS.TRAIN = ("train",)
 cfg.DATASETS.TEST = ("test",)
-
-# https://github.com/facebookresearch/detectron2/blob/dfc678a0aa6aaaae4e925877fe9f653edf627c86/detectron2/config/defaults.py
-cfg.DATALOADER.NUM_WORKERS = 4
-cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
-cfg.SOLVER.IMS_PER_BATCH = 32
-cfg.SOLVER.BASE_LR = 0.0003  # pick a good LR
-cfg.SOLVER.STEPS = (650,)
-cfg.SOLVER.MAX_ITER = 4000
-cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 512   # this is the default
-cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # only has one class
-cfg.TEST.EVAL_PERIOD = 0 # the period in terms of steps to evaluate the model on the test set by computing AP statistics, but should be edited to run on val set.
-cfg.SOLVER.CHECKPOINT_PERIOD = 800
 cfg.VALIDATION_PERIOD = 20
-cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[16, 32, 64, 128]]
-cfg.OUTPUT_DIR = "/home/ryan/work/cropmask_experiments/nirrg-decay-step-650/" # always change this for each unique experiment. config file for each run is saved in a new directory
-cfg.CUDNN_BENCHMARK = False # might cause speed gains since all images are same size if set to True (default is False)
-cfg.INPUT.FORMAT = "RGB"
-# for nirrg seed 1
-# [ 931.90757125, 1001.46930161, 2793.30379383] means
-# [262.82447442, 340.61644907, 559.11205354] stds
-# for rgb seed 1
-# [ 663.63835962, 931.90757125, 1001.46930161] means
-# [667.12563726, 262.82447442, 340.61644907] stds
-# Default values are the mean pixel value from ImageNet: [103.53, 116.28, 123.675]
-cfg.MODEL.PIXEL_MEAN = [931.90757125, 1001.46930161, 2793.30379383]
-# When using pre-trained models in Detectron1 or any MSRA models,
-# std has been absorbed into its conv1 weights, so the std needs to be set 1.
-# Otherwise, you can use [57.375, 57.120, 58.395] (ImageNet std)
-cfg.MODEL.PIXEL_STD = [262.82447442, 340.61644907, 559.11205354]
+cfg.merge_from_file("/home/ryan/work/CropMask_RCNN/base_config.yaml")
+cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
+cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/nirrg-freeze-1/" # always change this for each unique experiment. config file for each run is saved in a new directory
+# things to try
+# only use some features, less ps
+# NMS threshold
+# learning rate
+# learning rate scheduling
+# ROI and rPN head count
+# ROI and RPN positive fraction
+cfg.SOLVER.MAX_ITER = 3000
+cfg.SOLVER.CHECKPOINT_PERIOD = 200
+cfg.DATALOADER.NUM_WORKERS = 4
+cfg.SOLVER.IMS_PER_BATCH = 16 # 16 is the default
+cfg.MODEL.RPN.NMS_THRESH = 0.9
+cfg.SOLVER.STEPS = (600,)
+# Default weights on (dx, dy, dw, dh) for normalizing bbox regression targets
+# These are empirically chosen to approximately lead to unit variance targets
+#cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (10.0, 10.0, 5.0, 5.0)
+cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (0, 0, 0, 0) # improves overall loss
+# Size of the smallest side of the image during testing. Set to zero to disable resize in testing.
+cfg.INPUT.MIN_SIZE_TEST = 0
+# Maximum size of the side of the image during testing
+cfg.INPUT.MAX_SIZE_TEST = 0
+# cfg.MODEL.BACKBONE.FREEZE_AT = 1
 
-cfg.VERSION = 2
-### Below are the defaults for version 2 on February 2nd 2020
+# config defaults Feb 14, 2020
+# The version number, to upgrade from old configs to new ones if any
+# changes happen. It's recommended to keep a VERSION in your config file.
+# _C.VERSION = 2
+
 # _C.MODEL = CN()
 # _C.MODEL.LOAD_PROPOSALS = False
 # _C.MODEL.MASK_ON = False
@@ -187,7 +191,7 @@ cfg.VERSION = 2
 # # to use for IN_FEATURES[i]; len(SIZES) == len(IN_FEATURES) must be true,
 # # or len(SIZES) == 1 is true and size list SIZES[0] is used for all
 # # IN_FEATURES.
-#_C.MODEL.ANCHOR_GENERATOR.SIZES = [[32, 64, 128, 256, 512]]
+# _C.MODEL.ANCHOR_GENERATOR.SIZES = [[32, 64, 128, 256, 512]]
 # # Anchor aspect ratios.
 # # Format is list of lists of sizes. ASPECT_RATIOS[i] specifies the list of aspect ratios
 # # to use for IN_FEATURES[i]; len(ASPECT_RATIOS) == len(IN_FEATURES) must be true,
@@ -290,7 +294,6 @@ cfg.VERSION = 2
 # # train ROI heads.
 # _C.MODEL.ROI_HEADS.PROPOSAL_APPEND_GT = True
 
-
 # # ---------------------------------------------------------------------------- #
 # # Box Head
 # # ---------------------------------------------------------------------------- #
@@ -319,6 +322,8 @@ cfg.VERSION = 2
 # _C.MODEL.ROI_BOX_HEAD.NORM = ""
 # # Whether to use class agnostic for bbox regression
 # _C.MODEL.ROI_BOX_HEAD.CLS_AGNOSTIC_BBOX_REG = False
+# # If true, RoI heads use bounding boxes predicted by the box head rather than proposal boxes.
+# _C.MODEL.ROI_BOX_HEAD.TRAIN_ON_PRED_BOXES = False
 
 # # ---------------------------------------------------------------------------- #
 # # Cascaded Box Head
@@ -584,3 +589,14 @@ cfg.VERSION = 2
 # # The period (in terms of steps) for minibatch visualization at train time.
 # # Set to 0 to disable.
 # _C.VIS_PERIOD = 0
+
+# # global config is for quick hack purposes.
+# # You can set them in command line or config files,
+# # and access it with:
+# #
+# # from detectron2.config import global_cfg
+# # print(global_cfg.HACK)
+# #
+# # Do not commit any configs into it.
+# _C.GLOBAL = CN()
+# _C.GLOBAL.HACK = 1.0
