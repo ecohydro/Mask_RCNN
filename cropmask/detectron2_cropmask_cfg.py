@@ -15,7 +15,7 @@ cfg.DATASETS.TEST = ("test",)
 cfg.VALIDATION_PERIOD = 20
 cfg.merge_from_file("/home/ryan/work/CropMask_RCNN/base_config.yaml")
 cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
-cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/nirrg-freeze-1/" # always change this for each unique experiment. config file for each run is saved in a new directory
+cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/nirrg-viz-max-size512/" # always change this for each unique experiment. config file for each run is saved in a new directory
 # things to try
 # only use some features, less ps
 # NMS threshold
@@ -37,6 +37,12 @@ cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (0, 0, 0, 0) # improves overall loss
 cfg.INPUT.MIN_SIZE_TEST = 0
 # Maximum size of the side of the image during testing
 cfg.INPUT.MAX_SIZE_TEST = 0
+cfg.VIS_PERIOD = 20
+# # INPUT.MIN_SIZE_TRAIN
+cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING = "choice"
+# # Maximum size of the side of the image during training
+cfg.INPUT.MAX_SIZE_TRAIN = 512
+# # Size of the smallest side of the 
 # cfg.MODEL.BACKBONE.FREEZE_AT = 1
 
 # config defaults Feb 14, 2020
