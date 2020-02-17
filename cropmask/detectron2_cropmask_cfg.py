@@ -33,10 +33,6 @@ cfg.SOLVER.STEPS = () # isn't helping.
 # These are empirically chosen to approximately lead to unit variance targets
 #cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (10.0, 10.0, 5.0, 5.0)
 cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (0, 0, 0, 0) # improves overall loss
-# Size of the smallest side of the image during testing. Set to zero to disable resize in testing.
-cfg.INPUT.MIN_SIZE_TEST = 0
-# Maximum size of the side of the image during testing
-cfg.INPUT.MAX_SIZE_TEST = 0
 cfg.VIS_PERIOD = 0
 # # INPUT.MIN_SIZE_TRAIN
 cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING = "choice"
