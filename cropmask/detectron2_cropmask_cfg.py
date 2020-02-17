@@ -15,7 +15,7 @@ cfg.DATASETS.TEST = ("test",)
 cfg.VALIDATION_PERIOD = 20
 cfg.merge_from_file("/home/ryan/work/CropMask_RCNN/base_config.yaml")
 cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
-cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/nirrg-viz-max-size512/" # always change this for each unique experiment. config file for each run is saved in a new directory
+cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/nirrg-nms7/" # always change this for each unique experiment. config file for each run is saved in a new directory
 # things to try
 # only use some features, less ps
 # NMS threshold
@@ -26,9 +26,9 @@ cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/nirrg-viz-max-size512/" # alwa
 cfg.SOLVER.MAX_ITER = 3000
 cfg.SOLVER.CHECKPOINT_PERIOD = 200
 cfg.DATALOADER.NUM_WORKERS = 4
-cfg.SOLVER.IMS_PER_BATCH = 16 # 16 is the default
+cfg.SOLVER.IMS_PER_BATCH = 8 # 16 is the default
 cfg.MODEL.RPN.NMS_THRESH = 0.9
-cfg.SOLVER.STEPS = (600,)
+cfg.SOLVER.STEPS = () # isn't helping.
 # Default weights on (dx, dy, dw, dh) for normalizing bbox regression targets
 # These are empirically chosen to approximately lead to unit variance targets
 #cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (10.0, 10.0, 5.0, 5.0)
@@ -37,11 +37,26 @@ cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (0, 0, 0, 0) # improves overall loss
 cfg.INPUT.MIN_SIZE_TEST = 0
 # Maximum size of the side of the image during testing
 cfg.INPUT.MAX_SIZE_TEST = 0
-cfg.VIS_PERIOD = 20
+cfg.VIS_PERIOD = 0
 # # INPUT.MIN_SIZE_TRAIN
 cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING = "choice"
 # # Maximum size of the side of the image during training
 cfg.INPUT.MAX_SIZE_TRAIN = 512
+# these didn't help
+# cfg.MODEL.RPN.PRE_NMS_TOPK_TRAIN = 12000
+# cfg.MODEL.RPN.PRE_NMS_TOPK_TEST = 6000
+
+# cfg.MODEL.RPN.POST_NMS_TOPK_TRAIN = 2000
+# cfg.MODEL.RPN.POST_NMS_TOPK_TEST = 300
+
+cfg.SOLVER.BASE_LR = 0.0005
+
+# cfg.SOLVER.MOMENTUM = 0.9
+
+# cfg.SOLVER.WEIGHT_DECAY = 0.0001
+
+cfg.MODEL.RPN.NMS_THRESH = 0.7
+
 # # Size of the smallest side of the 
 # cfg.MODEL.BACKBONE.FREEZE_AT = 1
 
@@ -68,7 +83,7 @@ cfg.INPUT.MAX_SIZE_TRAIN = 512
 # # When using pre-trained models in Detectron1 or any MSRA models,
 # # std has been absorbed into its conv1 weights, so the std needs to be set 1.
 # # Otherwise, you can use [57.375, 57.120, 58.395] (ImageNet std)
-# _C.MODEL.PIXEL_STD = [1.0, 1.0, 1.0]
+cfg.MODEL.PIXEL_STD = [1.0, 1.0, 1.0] # se tthis since the instance segmentation model inherits weights from an MRSA model, following guideline
 
 
 # # -----------------------------------------------------------------------------
