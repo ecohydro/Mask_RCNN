@@ -37,6 +37,7 @@ def max_normalize(arr):
     arr *= 255.0 / arr.max()
     return arr
 
+
 def parse_yaml(input_file):
     """Parse yaml file of configuration parameters."""
     with open(input_file, "r") as yaml_file:
@@ -53,7 +54,6 @@ def make_dirs(directory_list):
             print("Whole directory list: ", directory_list)
             print("The directory "+d+" exists already. Check it and maybe delete it or change config.")
             raise FileExistsError
-
 
 def img_to_png(tif_path, png_path):
     """

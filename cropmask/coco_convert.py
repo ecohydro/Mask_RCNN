@@ -53,18 +53,21 @@ def split_save_train_validation_test_df(tiles_path, validation_size = .1, test_s
     and test df.)
     """
     image_tiles_path = tiles_path / "image_tiles"
+    jpeg_tiles_path = tiles_path / "jpeg_tiles"
     label_tiles_path = tiles_path / "label_tiles"
     geojson_tiles_path = tiles_path / "geojson_tiles"
     label_tiles = list(label_tiles_path.glob("*"))
     image_tiles = list(image_tiles_path.glob("*"))
     geojson_tiles = list(geojson_tiles_path.glob("*"))
+    jpeg_tiles = list(jpeg_tiles_path.glob("*"))
 
     # build tuples of label and im paths
     sorted_image_tiles = sorted(image_tiles, key=lambda x: str(x)[-19:])
+    sorted_jpeg_tiles = sorted(jpeg_tiles, key=lambda x: str(x)[-19:])
     sorted_label_tiles = sorted(label_tiles, key=lambda x: str(x)[-19:])
     sorted_geojson_tiles = sorted(geojson_tiles, key=lambda x: str(x)[-23:])
 
-    all_tiles_df = pd.DataFrame(list(zip(sorted_image_tiles, sorted_label_tiles, sorted_geojson_tiles)), columns = ["image_tiles", "label_tiles", "geojson_tiles"])
+    all_tiles_df = pd.DataFrame(list(zip(sorted_jpeg_tiles, sorted_image_tiles, sorted_label_tiles, sorted_geojson_tiles)), columns = ["jpeg_tiles", "image_tiles", "label_tiles", "geojson_tiles"])
 
     all_tiles_df['is_empty'] = all_tiles_df.loc[:,'label_tiles'].apply(str).str.contains("empty", regex=False)
     

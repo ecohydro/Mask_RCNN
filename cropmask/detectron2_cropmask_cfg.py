@@ -5,8 +5,8 @@ from detectron2 import model_zoo
 
 
 cfg = get_cfg()
+cfg.DATASET_PATH = "" # needs to be set since loading from base config with added attrs
 cfg.CONFIG_NAME = "config.yaml"
-cfg.DATASET_PATH = "/datadrive/test-ard-june-sept-nirrg"
 cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")) #COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml
 # added after subclassing Default Trainer above in order to plot validtion loss curves during training
 cfg.DATASETS.VALIDATION = ("validation",) 
@@ -14,6 +14,7 @@ cfg.DATASETS.TRAIN = ("train",)
 cfg.DATASETS.TEST = ("test",)
 cfg.VALIDATION_PERIOD = 20
 cfg.merge_from_file("/home/ryan/work/CropMask_RCNN/base_config.yaml")
+cfg.DATASET_PATH = "/datadrive/test-ard-june-sept-nirrg-jpeg-fill0"
 cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
 cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/nirrg-nms7/" # always change this for each unique experiment. config file for each run is saved in a new directory
 # things to try
