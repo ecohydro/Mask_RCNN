@@ -13,7 +13,7 @@ cfg.DATASETS.VALIDATION = ("validation",)
 cfg.DATASETS.TRAIN = ("train",)
 cfg.DATASETS.TEST = ("test",)
 cfg.VALIDATION_PERIOD = 20
-cfg.merge_from_file("/home/ryan/work/CropMask_RCNN/base_config.yaml")
+# cfg.merge_from_file("/home/ryan/work/CropMask_RCNN/base_config.yaml")
 cfg.DATASET_PATH = "/home/ryan/work/InstanceSegmentation_Sentinel2/output/preprocessed/annotations"
 cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
 cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/denmark/" # always change this for each unique experiment. config file for each run is saved in a new directory
@@ -28,17 +28,17 @@ cfg.SOLVER.MAX_ITER = 3000
 cfg.SOLVER.CHECKPOINT_PERIOD = 200
 cfg.DATALOADER.NUM_WORKERS = 4
 cfg.SOLVER.IMS_PER_BATCH = 8 # 16 is the default
-cfg.MODEL.RPN.NMS_THRESH = 0.9
-cfg.SOLVER.STEPS = () # isn't helping.
+#cfg.MODEL.RPN.NMS_THRESH = 0.9
+#cfg.SOLVER.STEPS = () # isn't helping.
 # Default weights on (dx, dy, dw, dh) for normalizing bbox regression targets
 # These are empirically chosen to approximately lead to unit variance targets
 #cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (10.0, 10.0, 5.0, 5.0)
-cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (0, 0, 0, 0) # improves overall loss
-cfg.VIS_PERIOD = 0
+#cfg.MODEL.ROI_BOX_HEAD.BBOX_REG_WEIGHTS = (0, 0, 0, 0) # improves overall loss
+cfg.VIS_PERIOD = 100
 # # INPUT.MIN_SIZE_TRAIN
-cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING = "choice"
+#cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING = "choice"
 # # Maximum size of the side of the image during training
-cfg.INPUT.MAX_SIZE_TRAIN = 512
+cfg.INPUT.MAX_SIZE_TRAIN = 128
 # these didn't help
 # cfg.MODEL.RPN.PRE_NMS_TOPK_TRAIN = 12000
 # cfg.MODEL.RPN.PRE_NMS_TOPK_TEST = 6000
@@ -52,7 +52,7 @@ cfg.SOLVER.BASE_LR = 0.0005
 
 # cfg.SOLVER.WEIGHT_DECAY = 0.0001
 
-cfg.MODEL.RPN.NMS_THRESH = 0.7
+# cfg.MODEL.RPN.NMS_THRESH = 0.7
 
 # # Size of the smallest side of the 
 # cfg.MODEL.BACKBONE.FREEZE_AT = 1
@@ -76,11 +76,11 @@ cfg.MODEL.RPN.NMS_THRESH = 0.7
 # # Values to be used for image normalization (BGR order, since INPUT.FORMAT defaults to BGR).
 # # To train on images of different number of channels, just set different mean & std.
 # # Default values are the mean pixel value from ImageNet: [103.53, 116.28, 123.675]
-# _C.MODEL.PIXEL_MEAN = [103.530, 116.280, 123.675]
+cfg.MODEL.PIXEL_MEAN = [94.39573293023147, 107.41797287837264, 117.982158630533]
 # # When using pre-trained models in Detectron1 or any MSRA models,
 # # std has been absorbed into its conv1 weights, so the std needs to be set 1.
 # # Otherwise, you can use [57.375, 57.120, 58.395] (ImageNet std)
-cfg.MODEL.PIXEL_STD = [1.0, 1.0, 1.0] # se tthis since the instance segmentation model inherits weights from an MRSA model, following guideline
+cfg.MODEL.PIXEL_STD = [1.0, 1.0, 1.0] # set this since the instance segmentation model inherits weights from an MRSA model, following guideline
 
 
 # # -----------------------------------------------------------------------------
@@ -209,7 +209,7 @@ cfg.MODEL.PIXEL_STD = [1.0, 1.0, 1.0] # se tthis since the instance segmentation
 # # to use for IN_FEATURES[i]; len(SIZES) == len(IN_FEATURES) must be true,
 # # or len(SIZES) == 1 is true and size list SIZES[0] is used for all
 # # IN_FEATURES.
-# _C.MODEL.ANCHOR_GENERATOR.SIZES = [[32, 64, 128, 256, 512]]
+cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[32, 40, 80, 100, 128]]
 # # Anchor aspect ratios.
 # # Format is list of lists of sizes. ASPECT_RATIOS[i] specifies the list of aspect ratios
 # # to use for IN_FEATURES[i]; len(ASPECT_RATIOS) == len(IN_FEATURES) must be true,

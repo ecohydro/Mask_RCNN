@@ -46,7 +46,7 @@ def read_bands_lsr(path_list):
     return xr.concat(band_arrs, dim="band")
 
 
-def read_scenes(scenes_folder_pattern):
+def read_scenes(scene_folders):
     """
     Reads in multiple Landsat surface reflectance scenes given a regex pattern for ARD scene folders.
 
@@ -54,14 +54,12 @@ def read_scenes(scenes_folder_pattern):
         path (str): Path of form "../*".
 
     Returns:
-        bool: Returns an xarray data array with dimensions for x, y, band, and time.
+        list: Returns a list of xarray data arrays
     """
-
-    scene_folders = glob.glob(scenes_folder_pattern)
     # only select files that contain a band
     sr_paths = [glob.glob(scene_folder+'/*SRB*') for scene_folder in scene_folders]  
     xr_arrs = [read_bands_lsr(paths) for paths in sr_paths]
-    return xr.concat(xr_arrs, dim="time")
+    return xr_arrs
 
 def zipped_shp_url_to_gdf(url):
     """Opens a zipped shapefile in memory as a GeoDataFrame. Currently used for

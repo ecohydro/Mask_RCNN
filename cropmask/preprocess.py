@@ -1,6 +1,7 @@
 import os
 import copy
 import skimage.io as skio
+from skimage import img_as_ubyte, exposure
 import warnings
 import geopandas as gpd
 from rasterio import features
@@ -16,9 +17,11 @@ from cropmask.misc import parse_yaml, make_dirs, img_to_png, label_to_png
 from cropmask import label_prep
 from cropmask import io_utils 
 from cropmask import coco_convert
+from PIL import Image as pilimg
 import solaris as sol
 from tqdm import tqdm
 import numpy as np
+from pathlib import Path
 
 def setup_dirs(param_path):
     """
@@ -41,6 +44,7 @@ def setup_dirs(param_path):
     image_tile_dir = os.path.join(TILES,"image_tiles")
     geojson_tile_dir = os.path.join(TILES,"geojson_tiles")
     label_tile_dir = os.path.join(TILES, "label_tiles")
+    jpeg_tile_dir = os.path.join(TILES, "jpeg_tiles")
 
     directory_list = [
             DATASET,
@@ -49,7 +53,8 @@ def setup_dirs(param_path):
             TILES,
             image_tile_dir,
             geojson_tile_dir,
-            label_tile_dir 
+            label_tile_dir,
+            jpeg_tile_dir
         ]
     make_dirs(directory_list)
     return directory_list
@@ -75,6 +80,7 @@ class PreprocessWorkflow():
         self.image_tile_dir = os.path.join(self.TILES,"image_tiles")
         self.geojson_tile_dir = os.path.join(self.TILES,"geojson_tiles")
         self.label_tile_dir = os.path.join(self.TILES, "label_tiles")
+        self.jpeg_tile_dir = os.path.join(self.TILES, "jpeg_tiles")
         # scene specific paths and variables
         self.band_list = [] # the band indices
         self.meta = {} # meta data for the scene
@@ -125,6 +131,20 @@ class PreprocessWorkflow():
                 self.meta=meta
                 self.bounds = rast.bounds
         return self
+    
+    def clamp_array(self, scene_arr):
+        """
+        Set outliers to percentile values.
+        """
+#         original_arr = scene_arr.copy()
+        scene_arr = scene_arr.where(scene_arr != scene_arr.rio.nodata)
+        self.perc_98 = np.nanpercentile(scene_arr, 98)
+        self.perc_2 = np.nanpercentile(scene_arr, 2)
+#         # outliers will later be set to the mean value of each array later since they are set to nodata here
+#         scene_arr = scene_arr.where(scene_arr < self.perc_98, scene_arr.rio.nodata)
+#         scene_arr = scene_arr.where(scene_arr > self.perc_2, scene_arr.rio.nodata)
+#         scene_arr = scene_arr.where(original_arr != scene_arr.rio.nodata, scene_arr.rio.nodata) # preserves nodata value for masking labels 
+#         return scene_arr
         
     def stack_and_save_bands(self):
         """Load the landsat bands specified by yaml_to_band_index and returns 
@@ -151,7 +171,8 @@ class PreprocessWorkflow():
         scene_name = os.path.basename(product_paths[0])[:-10] + ".tif"
         scene_path = os.path.join(self.SCENE, scene_name)
         self.scene_path = scene_path
-        scene_arr.rio.to_raster(scene_path)
+        self.clamp_array(scene_arr)
+        scene_arr.rio.to_raster(scene_path, dtype="int16")
         return self
             
     def filter_subset_vector_gdf(self, bounds_gdf):
@@ -230,32 +251,52 @@ class PreprocessWorkflow():
         self.raster_tile_paths = self.raster_tiler.tile_paths
         return self
         
-    def geojsons_to_masks(self):
-        self.rasterized_label_paths = []
-        print("starting label mask generation")
+    def for_each_img_tile(self):
+        self.raster_tiler.fill_all_nodata(0) # filling needs to occur before rescaling and resaving as jpeg.
+        self.all_chip_stats = {}
         for img_tile, geojson_tile in zip(tqdm(sorted(self.raster_tile_paths)), sorted(self.geojson_tile_paths)):
-            fid = os.path.basename(geojson_tile).split(".geojson")[0]
-            rasterized_label_path = os.path.join(self.label_tile_dir, fid + ".tif")
-            self.rasterized_label_paths.append(rasterized_label_path)
-            try:
-                gdf = gpd.read_file(geojson_tile)
-            except:
-                print(f"probably DriverError, check {geojson_tile} and {img_tile}")
-            gdf.crs = self.raster_bounds_crs # add this because gdfs can't be saved with wkt crs
-            arr = sol.vector.mask.instance_mask(gdf, out_file=rasterized_label_path, reference_im=img_tile, 
+            self.geojson_to_mask(img_tile,geojson_tile)
+            self.rescale_and_save(img_tile)
+        return self.all_chip_stats # stats from the jpeg chips after filling nodata and rescaling
+
+    def geojson_to_mask(self, img_tile, geojson_tile):
+        fid = os.path.basename(geojson_tile).split(".geojson")[0]
+        rasterized_label_path = os.path.join(self.label_tile_dir, fid + ".tif")
+        try:
+            gdf = gpd.read_file(geojson_tile)
+        except:
+            print(f"probably DriverError, check {geojson_tile} and {img_tile}")
+        gdf.crs = self.raster_bounds_crs # add this because gdfs can't be saved with wkt crs
+        arr = sol.vector.mask.instance_mask(gdf, out_file=rasterized_label_path, reference_im=img_tile, 
                                           geom_col='geometry', do_transform=None,
                                           out_type='int', burn_value=1, burn_field=None) # this saves the file, unless it is empty in which case we deal with it below.
-            if not arr.any(): # in case no instances in a tile we save it with "empty" at the front of the basename
-                with rasterio.open(img_tile) as reference_im:
-                    meta = reference_im.meta.copy()
-                    reference_im.close()
-                meta.update(count=1)
-                meta.update(dtype='uint8')
-                if isinstance(meta['nodata'], float):
-                    meta.update(nodata=0)
-                rasterized_label_path = os.path.join(self.label_tile_dir, "empty_" + fid + ".tif")
-                with rasterio.open(rasterized_label_path, 'w', **meta) as dst:
-                    dst.write(np.expand_dims(arr, axis=0))
-                    dst.close()
-        return self.raster_tiler.fill_all_nodata("mean") # after generating label masks that are set to 0 where there is nodata, fill the nodata with mean       
-#         return self for debugging
+        if not arr.any(): # in case no instances in a tile we save it with "empty" at the front of the basename
+            with rasterio.open(img_tile) as reference_im:
+                meta = reference_im.meta.copy()
+                reference_im.close()
+            meta.update(count=1)
+            meta.update(dtype='uint8')
+            if isinstance(meta['nodata'], float):
+                meta.update(nodata=0)
+            rasterized_label_path = os.path.join(self.label_tile_dir, "empty_" + fid + ".tif")
+            with rasterio.open(rasterized_label_path, 'w', **meta) as dst:
+                dst.write(np.expand_dims(arr, axis=0))
+                dst.close()
+                
+    def rescale_and_save(self, img_tile):
+        fid = os.path.basename(img_tile).split(".tif")[0]
+        jpeg_path = os.path.join(self.jpeg_tile_dir, fid + ".jpg")
+        img_array = skio.imread(img_tile)
+        img_array = exposure.rescale_intensity(img_array, in_range=(self.perc_2, self.perc_98))  # Landsat 5 ARD range.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            img_array = img_as_ubyte(img_array)
+        img_pil = pilimg.fromarray(img_array)
+
+        # Export chip images
+        with open(Path(jpeg_path), 'w') as dst:
+            img_pil.save(dst, format='JPEG', subsampling=0, quality=100)
+
+        self.all_chip_stats[jpeg_path] = {'mean': img_array.mean(axis=(0, 1)),
+                                         'std': img_array.std(axis=(0, 1))}
+
