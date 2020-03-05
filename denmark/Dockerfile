@@ -24,9 +24,11 @@ RUN  cd mxnet \
 RUN cd mxnet/python \
     && python setup.py install
 
-COPY coco_model/fcis_coco-0000.params /FCIS/model/
+COPY fcis_coco-0000.params /FCIS/model/
 
 RUN apt-get update
 
 RUN apt-get install -y --fix-missing python-tk \
     && pip install pillow matplotlib pyaml
+
+RUN pip install jupyterlab
