@@ -132,20 +132,6 @@ class PreprocessWorkflow():
                 self.bounds = rast.bounds
         return self
     
-    def clamp_array(self, scene_arr):
-        """
-        Set outliers to percentile values.
-        """
-#         original_arr = scene_arr.copy()
-        scene_arr = scene_arr.where(scene_arr != scene_arr.rio.nodata)
-        self.perc_98 = np.nanpercentile(scene_arr, 98)
-        self.perc_2 = np.nanpercentile(scene_arr, 2)
-#         # outliers will later be set to the mean value of each array later since they are set to nodata here
-#         scene_arr = scene_arr.where(scene_arr < self.perc_98, scene_arr.rio.nodata)
-#         scene_arr = scene_arr.where(scene_arr > self.perc_2, scene_arr.rio.nodata)
-#         scene_arr = scene_arr.where(original_arr != scene_arr.rio.nodata, scene_arr.rio.nodata) # preserves nodata value for masking labels 
-#         return scene_arr
-        
     def stack_and_save_bands(self):
         """Load the landsat bands specified by yaml_to_band_index and returns 
         a [H,W,N] Numpy array for a single scene, where N is the number of bands 
@@ -171,7 +157,6 @@ class PreprocessWorkflow():
         scene_name = os.path.basename(product_paths[0])[:-10] + ".tif"
         scene_path = os.path.join(self.SCENE, scene_name)
         self.scene_path = scene_path
-        self.clamp_array(scene_arr)
         scene_arr.rio.to_raster(scene_path, dtype="int16")
         return self
             
@@ -251,12 +236,12 @@ class PreprocessWorkflow():
         self.raster_tile_paths = self.raster_tiler.tile_paths
         return self
         
-    def for_each_img_tile(self):
+    def for_each_img_tile(self, clamp_low, clamp_high):
         self.raster_tiler.fill_all_nodata(0) # filling needs to occur before rescaling and resaving as jpeg.
         self.all_chip_stats = {}
         for img_tile, geojson_tile in zip(tqdm(sorted(self.raster_tile_paths)), sorted(self.geojson_tile_paths)):
             self.geojson_to_mask(img_tile,geojson_tile)
-            self.rescale_and_save(img_tile)
+            self.rescale_and_save(img_tile, clamp_low, clamp_high)
         return self.all_chip_stats # stats from the jpeg chips after filling nodata and rescaling
 
     def geojson_to_mask(self, img_tile, geojson_tile):
@@ -283,11 +268,11 @@ class PreprocessWorkflow():
                 dst.write(np.expand_dims(arr, axis=0))
                 dst.close()
                 
-    def rescale_and_save(self, img_tile):
+    def rescale_and_save(self, img_tile, clamp_low, clamp_high):
         fid = os.path.basename(img_tile).split(".tif")[0]
         jpeg_path = os.path.join(self.jpeg_tile_dir, fid + ".jpg")
         img_array = skio.imread(img_tile)
-        img_array = exposure.rescale_intensity(img_array, in_range=(self.perc_2, self.perc_98))  # Landsat 5 ARD range.
+        img_array = exposure.rescale_intensity(img_array, in_range=(clamp_low, clamp_high))  # Landsat 5 ARD .25 and 97.75 percentile range.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             img_array = img_as_ubyte(img_array)

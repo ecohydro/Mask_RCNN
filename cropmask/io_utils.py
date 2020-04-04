@@ -23,8 +23,9 @@ def open_rasterio_lsr(path):
     
     band_int = int(os.path.splitext(path)[0][-1])
     data_array = rioxarray.open_rasterio(path, chunks={'band': 1}) #chunks makes i lazyily executed
-    band_val = data_array['band']
-    band_val.data = np.array((band_int, ))
+    data_array = data_array.sel(band=1).drop("band") # gets rid of old coordinate dimension since we need bands to have unique coord ids
+    data_array["band"] = band_int # makes a new coordinate
+    data_array = data_array.expand_dims({"band":1}) # makes this coordinate a dimension
     return data_array
 
 def read_bands_lsr(path_list):

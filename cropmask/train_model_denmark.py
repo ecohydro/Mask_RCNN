@@ -19,17 +19,19 @@ from cropmask.coco_convert import split_save_train_validation_test_df, save_coco
 from cropmask import detectron2_reclass # fair amount of stuff goes on in here to make detectron work for this project.
 from cropmask.detectron2_cropmask_cfg_denmark import cfg
 
+from detectron2.engine import DefaultTrainer
+
 def setup_register_load_inputs(cfg):
-    outpath = Path(r'/home/ryan/work/InstanceSegmentation_Sentinel2/output/preprocessed')
+    outpath = Path(r'/datadrive/denmark-data/preprocessed')
     im_tiles_path = outpath / r'images/train2016'
     val_tiles_path = outpath / r'images/val2016'
-    train_coco_instances_path = outpath / r'annotations/train2016.json'
-    val_coco_instances_path = outpath / r'annotations/val2016.json'
+    train_coco_instances_path = outpath / r'annotations/instances_train2016.json'
+    val_coco_instances_path = outpath / r'annotations/instances_val2016.json'
     
    # register each val and test set if there are more than one.
     register_coco_instances(cfg.DATASETS.TRAIN[0], {}, str(train_coco_instances_path), str(im_tiles_path))
     register_coco_instances(cfg.DATASETS.VALIDATION[0], {}, str(val_coco_instances_path), str(val_tiles_path))
-   #register_coco_instances(cfg.DATASETS.TEST[0], {}, test_coco_instances_path, str(next(tiles_path.glob("*jpeg*"))))
+#     register_coco_instances(cfg.DATASETS.TEST[0], {}, test_coco_instances_path, str(next(tiles_path.glob("*jpeg*"))))
 
     train_json = load_coco_json(str(train_coco_instances_path),  str(im_tiles_path))
     val_json = load_coco_json(str(val_coco_instances_path),  str(val_tiles_path))
@@ -42,7 +44,8 @@ def save_cfg(cfg):
 
 def main():
     setup_register_load_inputs(cfg) # if this ain't here the multigpu can't find registered datasets
-    trainer = detectron2_reclass.Trainer(cfg)
+#     trainer = detectron2_reclass.Trainer(cfg)
+    trainer = DefaultTrainer(cfg)
     trainer.resume_or_load(resume=False)
     return trainer.train()
 

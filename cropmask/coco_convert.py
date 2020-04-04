@@ -13,6 +13,7 @@ from shutil import copyfile
 import pandas as pd
 import solaris as sol
 from sklearn.model_selection import train_test_split
+from detectron2.data.datasets import register_coco_instances, load_coco_json
 
 # funcs derived from https://github.com/waspinator/pycococreator/blob/d29534e36aad6c30d7e4dadd9f4f7b0e344a774c/pycococreatortools/pycococreatortools.py
 # and https://patrickwasp.com/create-your-own-coco-style-dataset/
@@ -60,7 +61,9 @@ def split_save_train_validation_test_df(tiles_path, validation_size = .1, test_s
     image_tiles = list(image_tiles_path.glob("*"))
     geojson_tiles = list(geojson_tiles_path.glob("*"))
     jpeg_tiles = list(jpeg_tiles_path.glob("*"))
-
+    assert len(label_tiles) > 0
+    assert len(jpeg_tiles) > 0
+    assert len(image_tiles) > 0
     # build tuples of label and im paths
     sorted_image_tiles = sorted(image_tiles, key=lambda x: str(x)[-19:])
     sorted_jpeg_tiles = sorted(jpeg_tiles, key=lambda x: str(x)[-19:])
@@ -104,5 +107,48 @@ def save_coco_annotation(outpath, coco_output):
     with open(outpath, 'w') as output_json_file:
         json.dump(coco_output, output_json_file)
     print(f"{os.path.basename(outpath)}"+" saved.")
+
+def switch_tif_jpeg(tif_json):
+    json_jpeg = []
+    for idx, i in enumerate(tif_json['images']):
+        tif_json['images'][idx]['file_name'] = tif_json['images'][idx]['file_name'].replace(".tif", ".jpg")
+    return tif_json
+
+def dataset_to_coco(dataset_path, img_type, experiment_dir=False):
+    """
+    Experiment dir only required for detectron2 dataset workflow. 
+    For denmark dataset workflow, experiment dir is created seperately since it has it's own folder structure. And requires jpeg instead of tif.
+    """
+    tiles_path = Path(dataset_path) / "tiles"
+    train, validation, test = split_save_train_validation_test_df(tiles_path, save_empty_tiles=False)
+    coco_path = Path(dataset_path) / "coco"
+    train_coco_instances_path = str(coco_path / "instances_train.json")
+    val_coco_instances_path = str(coco_path / "instances_val.json")
+    test_coco_instances_path = str(coco_path / "instances_test.json")
+    if (coco_path / "instances_train.json").exists() is False:
+        train_coco_dict = create_coco_dataset(train)
+        val_coco_dict = create_coco_dataset(validation)
+        test_coco_dict = create_coco_dataset(test)
+        
+        if img_type == "jpeg":
+            train_coco_dict = switch_tif_jpeg(train_coco_dict)
+            val_coco_dict = switch_tif_jpeg(val_coco_dict)
+            test_coco_dict = switch_tif_jpeg(test_coco_dict)
+                
+        save_coco_annotation(train_coco_instances_path, train_coco_dict)
+        save_coco_annotation(val_coco_instances_path, val_coco_dict)
+        save_coco_annotation(test_coco_instances_path, test_coco_dict)
+            
+    else:
+        print("COCO datasets already exist. Registering.")
+
+    # register each val and test set if there are more than one.
+    register_coco_instances("train", {}, train_coco_instances_path, str(next(tiles_path.glob("*jpeg*"))))
+    register_coco_instances("validate", {}, val_coco_instances_path, str(next(tiles_path.glob("*jpeg*"))))
+    register_coco_instances("test", {}, test_coco_instances_path, str(next(tiles_path.glob("*jpeg*"))))
     
-    
+    try:
+        os.makedirs(experiment_dir, exist_ok=False)
+    except:
+        pass
+    return train_coco_instances_path, val_coco_instances_path, test_coco_instances_path
