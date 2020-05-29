@@ -1,9 +1,9 @@
 dirs:
     root: /datadrive
-    dataset: test-ard-june-sept-nirrg # rename this based on where the folders with imagery and labels are located
+    dataset: test-ard-june-sept-rgb-jpeg-split-geo-128 # rename this based on where the folders with imagery and labels are located
 landsat_bands_to_include:
-    - blue: false
+    - blue: true
     - green: true
     - red: true
-    - near-IR : true
+    - near-IR : false
 seed: 42

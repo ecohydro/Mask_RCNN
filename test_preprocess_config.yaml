@@ -1,11 +1,13 @@
 dirs:
     root: /datadrive
-    dataset: test-ard-june-sept-rgb-dups-split-geo # rename this based on the imagery and labels
+    dataset: test-ard-june-sept-rgb-jpeg-split-geo-128 # rename this based on the imagery and labels
 landsat_bands_to_include:
     - blue: true
     - green: true
     - red: true
     - near-IR : false
+    - near-Ir2 : false
+    - thermal : false
 image_vals:
     dataset_name: "landsat-5"
     grid_size: 128 # in pixel units
@@ -13,4 +15,4 @@ image_vals:
     split: .10 # the proportion of samples that will be used for testing
 label_vals:
     ag_class_int: 1 # TO DO # if there are more than one classes, ag_class_int is the integer label for the class that will be negative buffered and size filtered'
-    small_area_filter: 3600 # in area meters, removes fields with area less than 100 meters from labels 
+    small_area_filter: 4000 # in area meters, removes fields with area less than x meters from labels 

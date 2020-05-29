@@ -1,0 +1,1 @@
+The section contains modified code from Christoph Rieke's thesis on applying the FCIS segmentation model to Sentinel-2 data to map agriculture in Denmark. This section includes a Dockerfile to reproduce the 2017 mxnet version and FCIS code to train models similar to what Christoph used.

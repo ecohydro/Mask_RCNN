@@ -13,35 +13,25 @@ from detectron2.engine import DefaultPredictor, launch, default_argument_parser
 from detectron2.utils.visualizer import Visualizer
 from detectron2.data import MetadataCatalog
 from detectron2.data.datasets import register_coco_instances, load_coco_json
-
+from detectron2.evaluation import COCOEvaluator
 from cropmask.misc import make_dirs
 from cropmask.coco_convert import split_save_train_validation_test_df, save_coco_annotation, create_coco_dataset
 from cropmask import detectron2_reclass # fair amount of stuff goes on in here to make detectron work for this project.
 from cropmask.detectron2_cropmask_cfg import cfg
-
+from detectron2.engine import DefaultTrainer
+# must be run after run_dask_preprocess.ipynb
 def setup_register_load_inputs(cfg):
     tiles_path = Path(cfg.DATASET_PATH) / "tiles"
-    train, validation, test = split_save_train_validation_test_df(tiles_path, save_empty_tiles=False)
     
     coco_path = Path(cfg.DATASET_PATH) / "coco"
-    train_coco_instances_path = str(coco_path / "instances_train.json")
-    val_coco_instances_path = str(coco_path / "instances_val.json")
-    test_coco_instances_path = str(coco_path / "instances_test.json")
-    if (coco_path / "instances_train.json").exists() is False:
-        train_coco_dict = create_coco_dataset(train)
-        val_coco_dict = create_coco_dataset(validation)
-        test_coco_dict = create_coco_dataset(test)
-        save_coco_annotation(train_coco_instances_path, train_coco_dict)
-        save_coco_annotation(val_coco_instances_path, val_coco_dict)
-        save_coco_annotation(test_coco_instances_path, test_coco_dict)
+    train_coco_instances_path = str(coco_path / "det_instances_train.json")
+    val_coco_instances_path = str(coco_path / "det_instances_val.json")
+#     test_coco_instances_path = str(coco_path / "det_instances_test.json")
+    # changes from images to jpeg
     # register each val and test set if there are more than one.
-    register_coco_instances(cfg.DATASETS.TRAIN[0], {}, train_coco_instances_path, str(next(tiles_path.glob("*image*"))))
-    register_coco_instances(cfg.DATASETS.VALIDATION[0], {}, val_coco_instances_path, str(next(tiles_path.glob("*image*"))))
-    register_coco_instances(cfg.DATASETS.TEST[0], {}, test_coco_instances_path, str(next(tiles_path.glob("*image*"))))
-
-    train_json = load_coco_json(train_coco_instances_path,  str(next(tiles_path.glob("*image*"))))
-    val_json = load_coco_json(val_coco_instances_path,  str(next(tiles_path.glob("*image*"))))
-    test_json = load_coco_json(test_coco_instances_path,  str(next(tiles_path.glob("*image*"))))
+    register_coco_instances(cfg.DATASETS.TRAIN[0], {}, train_coco_instances_path, str(next(tiles_path.glob("*jpeg*"))))
+#     register_coco_instances(cfg.DATASETS.VALIDATION[0], {}, val_coco_instances_path, str(next(tiles_path.glob("*image*"))))
+    register_coco_instances(cfg.DATASETS.TEST[0], {}, val_coco_instances_path, str(next(tiles_path.glob("*jpeg*")))) # changed to val from test
 
 def save_cfg(cfg):
     os.mkdir(cfg.OUTPUT_DIR)
@@ -50,7 +40,17 @@ def save_cfg(cfg):
 
 def main():
     setup_register_load_inputs(cfg) # if this ain't here the multigpu can't find registered datasets
-    trainer = detectron2_reclass.Trainer(cfg)
+#     trainer = detectron2_reclass.Trainer(cfg) getting it to overfit first, no checking on validation set
+    
+    class MyTrainer(DefaultTrainer):
+        @classmethod
+        def build_evaluator(cls, cfg, dataset_name, output_folder=None):
+            if output_folder is None:
+                output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
+            return COCOEvaluator(dataset_name, cfg, True, output_folder)
+    
+    
+    trainer = MyTrainer(cfg)
     trainer.resume_or_load(resume=False)
     return trainer.train()
 

@@ -29,9 +29,9 @@ INPUT:
     TYPE: relative_range
   FORMAT: RGB
   MASK_FORMAT: polygon
-  MAX_SIZE_TEST: 1333
-  MAX_SIZE_TRAIN: 1333
-  MIN_SIZE_TEST: 800
+  MAX_SIZE_TEST: 0
+  MAX_SIZE_TRAIN: 512
+  MIN_SIZE_TEST: 0
   MIN_SIZE_TRAIN:
   - 640
   - 672
@@ -86,9 +86,9 @@ MODEL:
   - 1001.46930161
   - 2793.30379383
   PIXEL_STD:
-  - 262.82447442
-  - 340.61644907
-  - 559.11205354
+  - 1.0
+  - 1.0
+  - 1.0
   PROPOSAL_GENERATOR:
     MIN_SIZE: 0
     NAME: RPN
@@ -161,10 +161,10 @@ MODEL:
     - 0.7
   ROI_BOX_HEAD:
     BBOX_REG_WEIGHTS:
-    - 10.0
-    - 10.0
-    - 5.0
-    - 5.0
+    - 0
+    - 0
+    - 0
+    - 0
     CLS_AGNOSTIC_BBOX_REG: false
     CONV_DIM: 256
     FC_DIM: 1024
@@ -266,19 +266,18 @@ MODEL:
     NORM: GN
     NUM_CLASSES: 54
   WEIGHTS: https://dl.fbaipublicfiles.com/detectron2/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x/137849600/model_final_f10217.pkl
-OUTPUT_DIR: /datadrive/cropmask_experiments/nirrg-double-roi_heads/
+OUTPUT_DIR: /datadrive/cropmask_experiments/nirrg-nms7/
 SEED: -1
 SOLVER:
-  BASE_LR: 0.0003
+  BASE_LR: 0.0005
   BIAS_LR_FACTOR: 1.0
-  CHECKPOINT_PERIOD: 800
+  CHECKPOINT_PERIOD: 200
   GAMMA: 0.1
-  IMS_PER_BATCH: 16
+  IMS_PER_BATCH: 8
   LR_SCHEDULER_NAME: WarmupMultiStepLR
-  MAX_ITER: 4000
+  MAX_ITER: 3000
   MOMENTUM: 0.9
-  STEPS:
-  - 650
+  STEPS: []
   WARMUP_FACTOR: 0.001
   WARMUP_ITERS: 1000
   WARMUP_METHOD: linear

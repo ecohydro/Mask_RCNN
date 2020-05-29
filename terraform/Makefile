@@ -74,6 +74,6 @@ status-mgpu:
 
 # ssh into machine and forward jupyter port
 ssh-mgpu:
-		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 ${VM_CONN_MGPU}
+		ssh -i ${PATH_SSH_KEY} -L 8888:localhost:8888 -L 8881:localhost:8881 ${VM_CONN_MGPU}
 
 

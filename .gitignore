@@ -1,3 +1,4 @@
+notebooks/dask-worker-space  
 app/LocalForwarder.config
 notebooks/test_metric
 images/*.tif
@@ -6,7 +7,9 @@ src/ # this is built from installing packages from github with conda
 azure_configs.yaml
 notebooks/test_metric
 postgisdb/
-
+fcis/InstanceSegmentation_Sentinel2/model/resnet_v1_101_coco_fcis_end2end_ohem/*.params
+fcis/InstanceSegmentation_Sentinel2/model/resnet_v1_101_coco_fcis_end2end_ohem/*.json
+fcis/InstanceSegmentation_Sentinel2/model/*.params
 # Data files and directories common in repo root
 data/
 datasets/

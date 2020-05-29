@@ -2,63 +2,90 @@ from detectron2.config import get_cfg
 from detectron2 import model_zoo
 
 # config URLs
-
-
 cfg = get_cfg()
 cfg.DATASET_PATH = "" # needs to be set since loading from base config with added attrs
 cfg.CONFIG_NAME = "config.yaml"
 cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")) #COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml
 # added after subclassing Default Trainer above in order to plot validtion loss curves during training
-cfg.DATASETS.VALIDATION = ("validation",) 
+# cfg.DATASETS.VALIDATION = ("validation",) 
 cfg.DATASETS.TRAIN = ("train",)
-cfg.DATASETS.TEST = ("test",)
-cfg.VALIDATION_PERIOD = 20
-cfg.merge_from_file("/home/ryan/CropMask_RCNN/base_config.yaml")
-cfg.DATASET_PATH = "/datadrive/test-ard-june-sept-nirrg"
+cfg.DATASETS.TEST = ("validation",)
+# cfg.VALIDATION_PERIOD = 20 #uncomment for validation loss
+cfg.TEST.EVAL_PERIOD = 500
+cfg.merge_from_file("/datadrive/cropmask_experiments/rgb-jpeg-split-geo-nebraska-freeze0/config.yaml") # uncomment to set config params from best tests on past 512x512 nirrg experiments
+cfg.DATASET_PATH = "/datadrive/test-ard-june-sept-rgb-jpeg-split-geo-128"
 cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")  # Let training initialize from model zoo
-cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/nirrg-something/" # always change this for each unique experiment. config file for each run is saved in a new directory
+cfg.OUTPUT_DIR = "/datadrive/cropmask_experiments/rgb-jpeg-split-geo-nebraska-freeze0-warmupgamma300-noresize/" # always change this for each unique experiment. config file for each run is saved in a new directory
+cfg.SEED= 1
 
-## generalized R-CNN-FPN config
-# https://github.com/facebookresearch/detectron2/blob/master/configs/Base-RCNN-FPN.yaml
-# MODEL:
-#   META_ARCHITECTURE: "GeneralizedRCNN"
-#   BACKBONE:
-#     NAME: "build_resnet_fpn_backbone"
-#   RESNETS:
-#     OUT_FEATURES: ["res2", "res3", "res4", "res5"]
-#   FPN:
-#     IN_FEATURES: ["res2", "res3", "res4", "res5"]
-#   ANCHOR_GENERATOR:
-#     SIZES: [[32], [64], [128], [256], [512]]  # One size for each in feature map
-#     ASPECT_RATIOS: [[0.5, 1.0, 2.0]]  # Three aspect ratios (same for all in feature maps)
-#   RPN:
-#     IN_FEATURES: ["p2", "p3", "p4", "p5", "p6"]
-#     PRE_NMS_TOPK_TRAIN: 2000  # Per FPN level
-#     PRE_NMS_TOPK_TEST: 1000  # Per FPN level
-#     # Detectron1 uses 2000 proposals per-batch,
-#     # (See "modeling/rpn/rpn_outputs.py" for details of this legacy issue)
-#     # which is approximately 1000 proposals per-image since the default batch size for FPN is 2.
-#     POST_NMS_TOPK_TRAIN: 1000
-#     POST_NMS_TOPK_TEST: 1000
-#   ROI_HEADS:
-#     NAME: "StandardROIHeads"
-#     IN_FEATURES: ["p2", "p3", "p4", "p5"]
-#   ROI_BOX_HEAD:
-#     NAME: "FastRCNNConvFCHead"
-#     NUM_FC: 2
-#     POOLER_RESOLUTION: 7
-#   ROI_MASK_HEAD:
-#     NAME: "MaskRCNNConvUpsampleHead"
-#     NUM_CONV: 4
-#     POOLER_RESOLUTION: 14
-# DATASETS:
-#   TRAIN: ("coco_2017_train",)
-#   TEST: ("coco_2017_val",)
-# SOLVER:
-#   IMS_PER_BATCH: 16
-#   BASE_LR: 0.02
-#   STEPS: (60000, 80000)
-#   MAX_ITER: 90000
-# INPUT:
-#   MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
-# VERSION: 2
+cfg.INPUT.MIN_SIZE_TRAIN = (128,)
+cfg.INPUT.MAX_SIZE_TRAIN = 128
+# Size of the smallest side of the image during testing. Set to zero to disable resize in testing.
+cfg.INPUT.MIN_SIZE_TEST = 128
+# Maximum size of the side of the image during testing
+cfg.INPUT.MAX_SIZE_TEST = 128
+
+# cfg.VIS_PERIOD = 500
+
+# cfg.TEST.DETECTIONS_PER_IMAGE = 100
+
+# # Number of images per batch across all machines.
+# # If we have 16 GPUs and IMS_PER_BATCH = 32,
+# # each GPU will see 2 images per batch.
+# cfg.SOLVER.IMS_PER_BATCH = 16
+
+# # Save a checkpoint after every this number of iterations
+# cfg.SOLVER.CHECKPOINT_PERIOD = 50
+
+# #used by cosine warmup
+cfg.SOLVER.MAX_ITER = 4000
+
+# cfg.SOLVER.BASE_LR = 0.001
+
+# cfg.SOLVER.MOMENTUM = 0.9
+
+# # cfg.SOLVER.LR_SCHEDULER_NAME = "WarmupMultiStepLR" #WarmupCosineLR
+# cfg.SOLVER.GAMMA = 0.1
+# # # The iteration number to decrease learning rate by GAMMA.
+# cfg.SOLVER.STEPS = (300,)
+
+# cfg.SOLVER.WARMUP_FACTOR = 3.34 / 1000 # changed by same factor as warmup_iters
+# cfg.SOLVER.WARMUP_ITERS = 300 # changed from 1000 since 1000 is 1.1 epochs. prbly wnat just a few batches for warmup?
+# cfg.SOLVER.WARMUP_METHOD = "linear"
+
+# # Number of top scoring precomputed proposals to keep for training
+# cfg.DATASETS.PRECOMPUTED_PROPOSAL_TOPK_TRAIN = 2000
+
+# # Number of top scoring precomputed proposals to keep for test
+# cfg.DATASETS.PRECOMPUTED_PROPOSAL_TOPK_TEST = 1000
+
+# # # Freeze the first several stages so they are not trained.
+# # # There are 5 stages in ResNet. The first is a convolution, and the following
+# # # stages are each group of residual blocks.
+# cfg.MODEL.BACKBONE.FREEZE_AT = 0 # slight improvement over 2, or not much affect.
+
+# cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[32, 64, 128, 256, 512]]
+# # Anchor aspect ratios. For each area given in `SIZES`, anchors with different aspect
+# # ratios are generated by an anchor generator.
+# # Format: list[list[float]]. ASPECT_RATIOS[i] specifies the list of aspect ratios (H/W)
+# # to use for IN_FEATURES[i]; len(ASPECT_RATIOS) == len(IN_FEATURES) must be true,
+# # or len(ASPECT_RATIOS) == 1 is true and aspect ratio list ASPECT_RATIOS[0] is used
+# # for all IN_FEATURES.
+# cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = [[0.5, 1.0, 2.0]]
+
+# # # Names of the input feature maps to be used by FPN
+# # # They must have contiguous power of 2 strides
+# # # e.g., ["res2", "res3", "res4", "res5"]
+# # cfg.MODEL.FPN.IN_FEATURES = []
+# # cfg.MODEL.FPN.OUT_CHANNELS = 256
+
+# # # Options: "" (no norm), "GN"
+# # cfg.MODEL.FPN.NORM = ""
+
+# # # Types for fusing the FPN top-down and lateral features. Can be either "sum" or "avg"
+# # cfg.MODEL.FPN.FUSE_TYPE = "sum"
+
+# # cfg.MODEL.ROI_HEADS.POSITIVE_FRACTION = 0.25
+
+# # # Options: "" (no norm), "GN", "SyncBN".
+# # cfg.MODEL.ROI_MASK_HEAD.NORM = ""

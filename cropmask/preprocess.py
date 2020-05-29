@@ -265,7 +265,11 @@ class PreprocessWorkflow():
                 meta.update(nodata=0)
             rasterized_label_path = os.path.join(self.label_tile_dir, "empty_" + fid + ".tif")
             with rasterio.open(rasterized_label_path, 'w', **meta) as dst:
-                dst.write(np.expand_dims(arr, axis=0))
+                if len(arr.shape) == 2:
+                    arr = np.expand_dims(arr, axis=0)
+                elif arr.shape[-1] == 1:
+                    arr = np.moveaxis(arr, -1, 0)
+                dst.write(arr)
                 dst.close()
                 
     def rescale_and_save(self, img_tile, clamp_low, clamp_high):
