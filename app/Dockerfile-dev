@@ -9,7 +9,7 @@ COPY ./pytorch_api /app/pytorch_api/
 COPY ./supervisord.conf /etc/supervisord.conf
 
 RUN echo "source activate ai4e_py_api" >> ~/.bashrc \
-    && conda env update --name ai4e_py_api --file /app/pytorch_api/app-environment-exp.yml
+    && conda env update --name ai4e_py_api --file /app/pytorch_api/app-environment-dev.yml 
 # PIL will be installed with pytorch
 
 # startup.sh is a helper script
@@ -34,4 +34,4 @@ ENV API_PREFIX=/v1/pytorch_api
 EXPOSE 80
 HEALTHCHECK --interval=1m --timeout=3s --start-period=20s \
   CMD curl -f http://localhost/${API_PREFIX}/  || exit 1
-ENTRYPOINT [ "/startup.sh" ]
+ENTRYPOINT [ "/usr/local/envs/ai4e_py_api/bin/jupyter", "lab", "--notebook-dir", "/app", "--no-browser", "--ip=0.0.0.0", "--port=8888", "--allow-root" ]

@@ -1,42 +1,49 @@
 # PyTorch example
 
-This example shows you how to deploy a PyTorch model via an AI for Earth container. In this example we use an image classification model trained on the iNaturalist 2018 dataset.
-
+This deploys a PyTorch model via an AI for Earth container. It serves a custom trained detectron2 Mask R-CNN model meant to run inference on 8-bit encoded, georeferenced Landsat tiffs.
 
 ## Download the model
 
-You can download an Inception v3 mdoel trained on the iNaturalist dataset from this [page](https://github.com/macaodha/inat_comp_2018), at the link in "we also provide a trained model that can be downloaded from _here_".
+The Mask R-CNN model and config yaml can be downloaded [here]().
 
-Place the downloaded model file [iNat_2018_InceptionV3.pth.tar](http://vision.caltech.edu/~macaodha/inat2018/iNat_2018_InceptionV3.pth.tar) in the `pytorch_api` folder, which will be copied to the Docker container (see the `COPY` commands in `Dockerfile`). There are other ways of accessing a model, such as placing it in a Azure blob storage container (a unit of blob storage, do not confuse with Docker _containers_) and mount that blob container.
+Place these two files in the `pytorch_api` folder, which will be copied to the Docker container (see the `COPY` commands in `Dockerfile`). There are other ways of accessing a model, such as placing it in a Azure blob storage container (a unit of blob storage, do not confuse with Docker _containers_) and mount that blob container.
 
-Copy the file `inception.py` from the [inat_comp_2018](https://github.com/macaodha/inat_comp_2018) page and place it in the `pytorch_api` folder. We instantiate an Inception model in `pytorch_api/runserver.py` and load its weights from the model file.
+## Using the Service
 
-## Modify Dockerfile
-
-The `Dockerfile` in this example is a modified version of `base-py/Dockerfile`. The only modification is the additional commands to install `scipy` and `pytorch` packages.
-
-
-## Modify `supervisord.conf`
-If you changed the name of the destination folder in the Dockerfile where your API folder is copied to (here we used `/api/pytorch_api/`), remember to modify two places in `supervisord.conf` that uses the location of the API folder.
-
-
-## Example service
-
-This example API endpoint takes an input image, performs image classification on it, and returns a string that indicates the most likely category (a numerical label for each of the 8142 species in the iNat categories) the classifier has determined. You can look up what category these numerical labels correspond to from the file downloadable on the iNat 2018 GitHub page (see first point in the Updates section).
+The dev image runs a jupyter notebook and sets up an image with more python libraries for testing.
 
 Build the docker image:
 ```
-docker build . -t pytorch_example:1
+docker build -f Dockerfile-dev -t pytorchapp-dev .
 ```
 
-Run image locally:
+Run dev image locally:
 ```
-docker run -p 8081:80 "pytorch_example:1"
+docker run -it -p 8888:8888 pytorchapp-dev
 ```
 
 Run an instance of this image interactively and start bash to debug:
 ```
-docker run -it pytorch_example:1 /bin/bash
+docker run -it --entry-point /bin/bash pytorchapp-dev
+```
+
+The production runs a webserver and includes minimal dependencies to do inference and convert predictions into vector format.
+
+For the production image
+
+Build the docker image:
+```
+docker build -f Dockerfile-prod -t pytorchapp-prod .
+```
+
+Run production image locally:
+```
+docker run -it pytorchapp-prod
+```
+
+Run an instance of this image interactively and start bash to debug:
+```
+docker run -it --entry-point /bin/bash pytorchapp-prod
 ```
 
 

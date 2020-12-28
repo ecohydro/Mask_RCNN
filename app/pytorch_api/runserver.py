@@ -1,18 +1,14 @@
 # /ai4e_api_tools has been added to the PYTHONPATH, so we can reference those
 # libraries directly.
-from flask import Flask, request, abort
-from flask_restful import Resource, Api
-from ai4e_app_insights import AppInsights
+from flask import Flask
 from ai4e_app_insights_wrapper import AI4EAppInsights
 from ai4e_service import APIService
-from PIL import Image
 import pytorch_classifier
 from io import BytesIO
-from os import getenv
 
 print("Creating Application")
 
-ACCEPTED_CONTENT_TYPES = ['image/png', 'application/octet-stream', 'image/jpeg']
+ACCEPTED_CONTENT_TYPES = ['image/png', 'image/tiff', 'application/octet-stream', 'image/jpeg']
 
 app = Flask(__name__)
 
@@ -26,10 +22,10 @@ with app.app_context():
 
 # Load the model
 # The model was copied to this location when the container was built; see ../Dockerfile
-model_path = '/app/pytorch_api/iNat_2018_InceptionV3.pth.tar'
+model_path = '/app/pytorch_api/most-recent-best-model-and-config-dec-2020/model_0002799.pth'
 model = pytorch_classifier.load_model(model_path)
 
-# Define a function for processing request data, if appliciable.  This function loads data or files into
+# Define a function for processing request data, if applicable.  This function loads data or files into
 # a dictionary for access in your API function.  We pass this function as a parameter to your API setup.
 def process_request_data(request):
     print('Processing data...')

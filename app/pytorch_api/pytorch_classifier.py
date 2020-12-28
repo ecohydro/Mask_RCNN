@@ -1,8 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from inception import Inception3
 from PIL import Image
 
 use_gpu = True
@@ -14,7 +12,7 @@ print('Using device: ', device)
 
 def load_model(model_path, device=device):
     print('pytorch_classifier.py: Loading model...')
-    num_classes = 8142
+    num_classes = 2
 
     checkpoint = torch.load(model_path, map_location=device)
 
