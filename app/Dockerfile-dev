@@ -35,4 +35,4 @@ ENV API_PREFIX=/v1/pytorch_api
 EXPOSE 80
 HEALTHCHECK --interval=1m --timeout=3s --start-period=20s \
   CMD curl -f http://localhost/${API_PREFIX}/  || exit 1
-ENTRYPOINT [ "/usr/local/envs/ai4e_py_api/bin/jupyter", "lab", "--notebook-dir", "/app", "--no-browser", "--ip=0.0.0.0", "--port=8888", "--allow-root" ]
+ENTRYPOINT [ "bash", "/app/pytorch_api/start_jupyter.sh" ]
