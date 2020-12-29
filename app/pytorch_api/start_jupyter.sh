@@ -1,0 +1,1 @@
+/usr/local/envs/ai4e_py_api/bin/jupyter lab --notebook-dir /app --no-browser --ip=0.0.0.0 --port=8888 --allow-root
