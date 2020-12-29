@@ -10,6 +10,8 @@ Place these two files in the `pytorch_api` folder, which will be copied to the D
 
 ## Using the Service
 
+nvidia-docker is required on the machine running the gpu enabled docker container. See this faq and repo for info: https://github.com/NVIDIA/nvidia-docker/wiki
+
 The dev image runs a jupyter notebook and sets up an image with more python libraries for testing.
 
 Build the docker image:
@@ -17,14 +19,15 @@ Build the docker image:
 docker build -f Dockerfile-dev -t pytorchapp-dev .
 ```
 
-Run dev image locally:
+Run dev image locally, mounting the host folder to the container to have access to notebooks, data downloads, models etc.:
 ```
-docker run -it -p 8888:8888 pytorchapp-dev
+cd /path/to/CropMask_RCNN
+docker run -it -p 8888:8888 --runtime=nvidia --mount type=bind,source="$(pwd)",target=/app/test pytorchapp-dev
 ```
 
 Run an instance of this image interactively and start bash to debug:
 ```
-docker run -it --entry-point /bin/bash pytorchapp-dev
+docker run -it --entrypoint /bin/bash --runtime=nvidia pytorchapp-dev
 ```
 
 The production runs a webserver and includes minimal dependencies to do inference and convert predictions into vector format.
@@ -38,12 +41,12 @@ docker build -f Dockerfile-prod -t pytorchapp-prod .
 
 Run production image locally:
 ```
-docker run -it pytorchapp-prod
+docker run -it --runtime=nvidia pytorchapp-prod
 ```
 
 Run an instance of this image interactively and start bash to debug:
 ```
-docker run -it --entry-point /bin/bash pytorchapp-prod
+docker run -it --runtime=nvidia --entry-point /bin/bash pytorchapp-prod
 ```
 
 

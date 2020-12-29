@@ -1,7 +1,8 @@
-FROM mcr.microsoft.com/aiforearth/base-py:1.8-cuda-9.0-runtime as ai4e_base
+FROM base-py-cuda-10.2:latest as ai4e_base
+#FROM mcr.microsoft.com/aiforearth/base-py:latest
 RUN conda update conda
 RUN apt-get update
-RUN apt-get install gcc g++ -y
+RUN apt-get install gcc g++ git -y
 # Note: supervisor.conf reflects the location and name of your api code.
 # If the default (./my_api/runserver.py) is renamed, you must change supervisor.conf
 # Copy your API code
