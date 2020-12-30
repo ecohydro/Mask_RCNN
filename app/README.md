@@ -12,6 +12,10 @@ Place these two files in the `pytorch_api` folder, which will be copied to the D
 
 nvidia-docker is required on the machine running the gpu enabled docker container. See this faq and repo for info: https://github.com/NVIDIA/nvidia-docker/wiki
 
+The AI for Earth base-py folder needs to be checked out from this commit: https://github.com/microsoft/AIforEarth-API-Development/blob/2afd4df1e8ca8d1f2f975d067991e40411324fd5/Containers/base-py/Dockerfile
+
+Since this properly sets up conda. Then, a more recent conda installer needs to be used to avoid conda import errors during build. Finally, a 10.1 cuda base image needs to be used to rebuild the AI for earth base py docker container, which is used as a base image for the pytorch app.
+
 The dev image runs a jupyter notebook and sets up an image with more python libraries for testing.
 
 Build the docker image:
