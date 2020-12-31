@@ -50,7 +50,7 @@ docker run -it --runtime=nvidia pytorchapp-prod
 
 Run an instance of this image interactively and start bash to debug:
 ```
-docker run -it --runtime=nvidia --entry-point /bin/bash pytorchapp-prod
+docker run -it --runtime=nvidia --entrypoint /bin/bash pytorchapp-prod
 ```
 
 
