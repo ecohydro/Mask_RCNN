@@ -45,12 +45,12 @@ docker build -f Dockerfile-prod -t pytorchapp-prod .
 
 Run production image locally:
 ```
-docker run -it --runtime=nvidia pytorchapp-prod
+docker run -it -p 8081:80 --runtime=nvidia pytorchapp-prod 
 ```
 
 Run an instance of this image interactively and start bash to debug:
 ```
-docker run -it --runtime=nvidia --entrypoint /bin/bash pytorchapp-prod
+docker run -it -p 8081:80 --runtime=nvidia --entrypoint /bin/bash pytorchapp-prod
 ```
 
 

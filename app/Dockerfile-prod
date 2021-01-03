@@ -3,14 +3,9 @@ FROM base-py-cuda-10.1:latest as ai4e_base
 RUN conda update conda
 RUN apt-get update
 RUN apt-get install gcc g++ git ffmpeg libsm6 libxext6 -y
-# Note: supervisor.conf reflects the location and name of your api code.
-# If the default (./my_api/runserver.py) is renamed, you must change supervisor.conf
-# Copy your API code
-COPY ./pytorch_api /app/pytorch_api/
-COPY ./supervisord.conf /etc/supervisord.conf
-
+COPY ./app-environment-prod.yml /app-environment-prod.yml
 RUN echo "source activate ai4e_py_api" >> ~/.bashrc \
-    && conda env update --name ai4e_py_api --file /app/pytorch_api/app-environment-prod.yml 
+    && conda env update --name ai4e_py_api --file /app-environment-prod.yml 
 # PIL will be installed with pytorch
 
 # prebuilt det 2 wouldn't compile with gpu support, compiling to support all architectures following
@@ -23,6 +18,12 @@ ARG TORCH_CUDA_ARCH_LIST="Kepler;Kepler+Tesla;Maxwell;Maxwell+Tegra;Pascal;Volta
 ENV TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST}"
 RUN git clone https://github.com/facebookresearch/detectron2.git detectron2_repo --branch v0.1.2 
 RUN pip install --user -e detectron2_repo
+
+# Note: supervisor.conf reflects the location and name of your api code.
+# If the default (./my_api/runserver.py) is renamed, you must change supervisor.conf
+# Copy your API code
+COPY ./pytorch_api /app/pytorch_api/
+COPY ./supervisord.conf /etc/supervisord.conf
 
 # startup.sh is a helper script
 COPY ./startup.sh /
