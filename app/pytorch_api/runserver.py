@@ -1,4 +1,3 @@
-
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # # /ai4e_api_tools has been added to the PYTHONPATH, so we can reference those libraries directly.
@@ -7,7 +6,7 @@ import pytorch_detector
 from flask import Flask, request, abort
 from ai4e_app_insights_wrapper import AI4EAppInsights
 from ai4e_service import APIService
-from io import BytesIO
+import base64
 
 print('Creating Application')
 ACCEPTED_CONTENT_TYPES = ['image/png', 'application/octet-stream', 'image/jpeg', 'image/tiff']
@@ -26,10 +25,13 @@ with app.app_context():
 # a dictionary for access in your API function.  We pass this function as a parameter to your API setup.
 def process_request_data(request):
     print('Processing data...')
-    return_values = {'image_bytes': None}
+    return_values = {'image_bytes': None,
+                    'outname': None
+                    }
     try:
         # Attempt to load the body
-        return_values['image_bytes'] = BytesIO(request.data)
+        return_values['image_bytes'] = base64.b64decode(request.json['data']) # b64 encoded string
+        return_values['outname'] = request.json['outname'] # landsat filename string with data metadata
     except:
         log.log_error('Unable to load the request data')   # Log to Application Insights
     return return_values
@@ -50,9 +52,9 @@ def detect(*args, **kwargs):
     log.log_debug('Started task', taskId) # Log to Application Insights
 
     # Get the data from the dictionary key that you assigned in your process_request_data function.
-    request_json = kwargs.get('image_bytes')
+    request_bytes = kwargs.get('image_bytes')
 
-    if not request_json:
+    if not request_bytes:
         ai4e_service.api_task_manager.FailTask(taskId, 'Task failed - Body was empty or could not be parsed.')
         return -1
 
@@ -62,7 +64,7 @@ def detect(*args, **kwargs):
     # Update the task status, so the caller knows it has been accepted and is running.
     ai4e_service.api_task_manager.UpdateTaskStatus(taskId, 'running model')
     log.log_debug('Running model', taskId) # Log to Application Insights
-    predictions = pytorch_detector.run_model_single_image(request_json, model)
+    predictions = pytorch_detector.run_model_single_image(request_bytes, model, cfg)
 
     # Once complete, ensure the status is updated.
     log.log_debug('Completed task', taskId) # Log to Application Insights
@@ -75,4 +77,4 @@ def echo(*args, **kwargs):
     return 'Echo: ' + kwargs['text']
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

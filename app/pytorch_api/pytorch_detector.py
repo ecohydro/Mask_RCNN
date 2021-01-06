@@ -38,7 +38,7 @@ def load_and_edit_cfg_for_inference(cfg_path= "/app/pytorch_api/config.yaml",
     return model_cfg
 
 def load_model_for_inference(cfg):
-    print('pytorch_classifier.py: Loading model!!!!!!!!!!!!!!!!!!!...')
+    print('pytorch_classifier.py: Loading model...')
     model = build_model(cfg)  # returns a torch.nn.Module
     model.eval()
 
@@ -46,8 +46,8 @@ def load_model_for_inference(cfg):
     checkpointer.load(cfg.MODEL.WEIGHTS); # ; suppresses long output
     return model
 
-def run_model_single_image(body, model):
-    img, meta = open_image_and_meta(body['image_bytes'])
+def run_model_single_image(request_bytes, model, cfg):
+    img, meta = open_image_and_meta(request_bytes)
     rgb_img = img[:,:,::-1] # assumes image is in BGR order, puts it in RGB order since model expects RGB
     aug = T.ResizeShortestEdge(
             [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST
