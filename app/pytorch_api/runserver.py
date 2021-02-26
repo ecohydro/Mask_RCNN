@@ -26,12 +26,14 @@ with app.app_context():
 def process_request_data(request):
     print('Processing data...')
     return_values = {'image_bytes': None,
-                    'outname': None
+                    'outname': None,
+                    "score_threshold" :None
                     }
     try:
         # Attempt to load the body
         return_values['image_bytes'] = base64.b64decode(request.json['data']) # b64 encoded string
         return_values['outname'] = request.json['outname'] # landsat filename string with data metadata
+        return_values['score_thresh'] = request.json['score_threshold'] # to filter predictions by confidence
     except:
         log.log_error('Unable to load the request data')   # Log to Application Insights
     return return_values
@@ -45,6 +47,9 @@ def process_request_data(request):
     content_types = ACCEPTED_CONTENT_TYPES,
     content_max_length = 1000, # In bytes
     trace_name = 'post:detect')
+
+
+
 
 def detect(*args, **kwargs):
     # Since this is an async function, we need to keep the task updated.
@@ -64,10 +69,46 @@ def detect(*args, **kwargs):
     # Update the task status, so the caller knows it has been accepted and is running.
     ai4e_service.api_task_manager.UpdateTaskStatus(taskId, 'running model')
     log.log_debug('Running model', taskId) # Log to Application Insights
-    predictions = pytorch_detector.run_model_single_image(request_bytes, model, cfg)
+    predictions, rgb_img = pytorch_detector.run_model_single_image(request_bytes, model, cfg)
 
     # Once complete, ensure the status is updated.
     log.log_debug('Completed task', taskId) # Log to Application Insights
+
+    print("Saving Image")
+
+    from detectron2.utils.visualizer import ColorMode
+    from detectron2.data import MetadataCatalog
+    from detectron2.utils.visualizer import Visualizer
+    import matplotlib.pyplot as plt
+    metadata = MetadataCatalog.get("test")
+    vis_p = Visualizer(rgb_img, metadata, instance_mode=ColorMode.SEGMENTATION)
+
+    # move to cpu
+    # instances = result['instances']
+    print("score threshold")
+    print(type(kwargs.get("score_thresh")))
+    predictions = predictions[predictions.scores >  kwargs.get("score_thresh")]
+    vis_pred_im = vis_p.draw_instance_predictions(predictions).get_image()
+
+    def show_im(image, ax, figname):
+        # Show area outside image boundaries.
+        ax.axis('off')
+        ax.imshow(image)
+        plt.savefig(figname)
+        return ax
+    input_name = kwargs.get('outname')
+    file_id = input_name.split(".")[0]
+    figname = file_id + ".png"
+    plt.rcParams['font.size'] = 20
+    plt.rcParams['axes.linewidth'] = 2
+    plt.style.use("seaborn")
+    fig,ax = plt.subplots(figsize=(10,10))
+    show_im(vis_pred_im,ax, figname)
+
+    vector_name = file_id + "_predictions.gpkg"
+
+    print(f"Task Completed {figname} saved")
+
     # Update the task with a completion event.
     ai4e_service.api_task_manager.CompleteTask(taskId, 'completed')
 

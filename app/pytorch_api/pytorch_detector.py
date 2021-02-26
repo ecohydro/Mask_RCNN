@@ -5,6 +5,10 @@ import detectron2.data.transforms as T
 import torch
 from rasterio.io import MemoryFile
 from rasterio.plot import reshape_as_image
+import skimage.io as skio
+from skimage import img_as_ubyte, exposure
+import warnings
+import numpy as np
 
 use_gpu = True
 dtype = torch.float32
@@ -24,6 +28,26 @@ def open_image_and_meta(image_bytes):
             meta = src.meta
             arr = reshape_as_image(src.read())
     return arr, meta
+
+def rescale_tif(arr, clamp_low=262, clamp_high=1775):
+    """rescales uint16 tiff data to unt8. 
+    
+    The model was trained on uint8 and needs uint8 inputs. clamp_low and clamp_high
+    should not be changed, since these values were used for training.
+
+    Args:
+        arr ([type]): [description]
+        clamp_low (int, optional): [description]. Defaults to 262.
+        clamp_high (int, optional): [description]. Defaults to 1775.
+
+    Returns:
+        [type]: [description]
+    """
+    img_array = exposure.rescale_intensity(arr, in_range=(clamp_low, clamp_high))  # Landsat 5 ARD .25 and 97.75 percentile range used in training
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        img_array = img_as_ubyte(img_array)
+    return img_array
 
 def load_and_edit_cfg_for_inference(cfg_path= "/app/pytorch_api/config.yaml",
                                    model_weights_path = "/app/pytorch_api/best-mrcnn-nebraska-model-rgb-jpeg-split-geo-nebraska-freeze0-withseed.pth"):
@@ -48,12 +72,17 @@ def load_model_for_inference(cfg):
 
 def run_model_single_image(request_bytes, model, cfg):
     img, meta = open_image_and_meta(request_bytes)
+    if img.dtype == "int16": # assuming it's read from araster and needs to be rescaled
+        img = rescale_tif(img)
     rgb_img = img[:,:,::-1] # assumes image is in BGR order, puts it in RGB order since model expects RGB
     aug = T.ResizeShortestEdge(
             [cfg.INPUT.MIN_SIZE_TEST, cfg.INPUT.MIN_SIZE_TEST], cfg.INPUT.MAX_SIZE_TEST
         )
     with torch.no_grad():
         height, width = img.shape[:2]
+        print("Type of input data for inference (should be uint8):")
+        print(rgb_img.dtype)
+        assert rgb_img.dtype == "uint8"
         img = aug.get_transform(rgb_img).apply_image(rgb_img)
         img = torch.as_tensor(img.astype("float32").transpose(2, 0, 1))
         inputs = {"image": img, "height": height, "width": width}

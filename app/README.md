@@ -29,6 +29,8 @@ cd /path/to/CropMask_RCNN
 docker run -it -p 8888:8888 --runtime=nvidia --mount type=bind,source="$(pwd)",target=/app/test pytorchapp-dev
 ```
 
+You can test an example request with `example_reguest.ipynb` and test the model and server side code interactively in `testpytorchapi.ipynb`. Outputs will currently be saved to the pytorch_api folder on the host and the production container.
+
 Run an instance of this image interactively and start bash to debug:
 ```
 docker run -it --entrypoint /bin/bash --runtime=nvidia pytorchapp-dev
@@ -48,9 +50,10 @@ Run production image locally:
 docker run -it -p 8081:80 --runtime=nvidia pytorchapp-prod 
 ```
 
-Run an instance of this image interactively and start bash to debug:
+Run an instance of this image interactively for debugging. stop it with CNTRL+C and restarrt it to remount and changed server side code.:
 ```
-docker run -it -p 8081:80 --runtime=nvidia --entrypoint /bin/bash pytorchapp-prod
+docker run -it --mount type=bind,source="$(pwd)/pytorch_api",target=/app/pytorch_api -p 8081:80 --runtime=nvidia pytorchapp-prod
+
 ```
 
 
