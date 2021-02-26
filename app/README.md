@@ -1,47 +1,59 @@
-# TensorFlow example
+# PyTorch example
 
-This example shows you how to deploy a Keras model via an AI for Earth container using the cropmask library, which depends on Keras and the mrcnn libraries. In this example we use an object detection model trained on Landsat 5 imagery over western Nebraska.
-
-In this example, the user will send an image to the API via a POST call. It is a long-running API, so a task ID will be returned when the endpoint is called. The API creates a SAS-keyed container within the API owner's Azure storage account. The SAS URL is returned to the caller via a status update.
+This deploys a PyTorch model via an AI for Earth container. It serves a custom trained detectron2 Mask R-CNN model meant to run inference on 8-bit encoded, georeferenced Landsat tiffs.
 
 ## Download the model
 
-You can download a model you have trained from Azure storage. After you download, move this file to directory `cropmask_api` at the current directory.
+The Mask R-CNN model and config yaml can be downloaded [here]().
 
-In this example, we copy the entire directory `cropmask_api` to the Docker container (see the `COPY` commands in `Dockerfile`), but there are other ways of accessing a model, such as placing it in a Azure blob storage container (a unit of blob storage, do not confuse with Docker _containers_) and mount that blob container.
+Place these two files in the `pytorch_api` folder, which will be copied to the Docker container (see the `COPY` commands in `Dockerfile`). There are other ways of accessing a model, such as placing it in a Azure blob storage container (a unit of blob storage, do not confuse with Docker _containers_) and mount that blob container.
 
-## Modify Dockerfile
+## Using the Service
 
-The `Dockerfile` in this example is a modified version of `base-py/Dockerfile`. The only modification is the additional commands to cropmask and other required packages.
+nvidia-docker is required on the machine running the gpu enabled docker container. See this faq and repo for info: https://github.com/NVIDIA/nvidia-docker/wiki
 
+The AI for Earth base-py folder needs to be checked out from this commit: https://github.com/microsoft/AIforEarth-API-Development/blob/2afd4df1e8ca8d1f2f975d067991e40411324fd5/Containers/base-py/Dockerfile
 
-## Modify `supervisord.conf`
-If you changed the name of the destination folder in the Dockerfile where your API folder is copied to (here we used `/api/cropmask_api/`), remember to modify two places in `supervisord.conf` that uses the location of the API folder.
+Since this properly sets up conda. Then, a more recent conda installer needs to be used to avoid conda import errors during build. Finally, a 10.1 cuda base image needs to be used to rebuild the AI for earth base py docker container, which is used as a base image for the pytorch app.
 
+The dev image runs a jupyter notebook and sets up an image with more python libraries for testing.
 
-## Download some sample images
-You can download sample images to test from USGS Earth Explorer or with LSRU (on github).
-
-
-## Example service
-
-This example API endpoint takes an input image, performs object detection on it, renders the bounding boxes on the image (only if the confidence of the detected box is above 0.5, which is the `confidence_threshold` you can change in `cropmask_api/runserver.py`) and returns the annotated image. This is to demonstrate how to handle image input and output. Realistically you would probably return the coordinates of the bounding boxes and predicted categories in a json, rather than the rendered image.
-
-Build the docker image (need to be in the Examples/tensorflow directory where the `Dockerfile` is):
+Build the docker image:
 ```
-docker build . -t cropmask_example:1
+docker build -f Dockerfile-dev -t pytorchapp-dev .
 ```
 
-Run image locally:
+Run dev image locally, mounting the host folder to the container to have access to notebooks, data downloads, models etc.:
 ```
-docker run -p 8081:80 "cropmask_example:1"
+cd /path/to/CropMask_RCNN
+docker run -it -p 8888:8888 --runtime=nvidia --mount type=bind,source="$(pwd)",target=/app/test pytorchapp-dev
 ```
 
-For this async API example, we saved the resulting imgae from the long running process to  blob storage. You need to create a storage account with Blob Storage, and assign the storage account name and the key (secondary) to `STORAGE_ACCOUNT_NAME` and `STORAGE_ACCOUNT_KEY` inside the Dockerfile.
+You can test an example request with `example_reguest.ipynb` and test the model and server side code interactively in `testpytorchapi.ipynb`. Outputs will currently be saved to the pytorch_api folder on the host and the production container.
 
 Run an instance of this image interactively and start bash to debug:
 ```
-docker run -it cropmask_example:1 /bin/bash
+docker run -it --entrypoint /bin/bash --runtime=nvidia pytorchapp-dev
+```
+
+The production runs a webserver and includes minimal dependencies to do inference and convert predictions into vector format.
+
+For the production image
+
+Build the docker image:
+```
+docker build -f Dockerfile-prod -t pytorchapp-prod .
+```
+
+Run production image locally:
+```
+docker run -it -p 8081:80 --runtime=nvidia pytorchapp-prod 
+```
+
+Run an instance of this image interactively for debugging. stop it with CNTRL+C and restarrt it to remount and changed server side code.:
+```
+docker run -it --mount type=bind,source="$(pwd)/pytorch_api",target=/app/pytorch_api -p 8081:80 --runtime=nvidia pytorchapp-prod
+
 ```
 
 
@@ -50,20 +62,10 @@ docker run -it cropmask_example:1 /bin/bash
 Testing locally, the end point would be at
 
 ```
-http://localhost:8081/v1/cropmask_api/detect
+http://localhost:8081/v1/pytorch_api/classify
 ```
 
 You can use a tool like Postman to test the end point:
 
-![Calling the async API](../screenshots/postman_tf_async_api.png)
-
-In the _Body_ tab of Postman where you specify the body data to go with the POST request, you can upload the image you'd like to detect animals on as binary data under the _binary_ option. You also need to set the content type of the binary file to "image/jpeg" in the Headers tab, as follows:
-
-
-![Calling the async API](../screenshots/postman_header_content_type.png)
-
-
-You can see the output image with the detection bounding boxes labeled saved to your blob storage using Azure Storage Explorer (screenshot below) if you own or have access to that storage account, or you can download it using the SAS URL that was returned to the caller via another status update call.
-
-![Calling the async API](../screenshots/storage_explorer_tf_out.png)
+![Calling the API](../screenshots/postman_pytorch_api.png)
 
