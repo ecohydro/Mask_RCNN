@@ -89,3 +89,14 @@ terraform/.terraform.tfstate.lock.info
 
 # etc.
 cropmask/tests/.cache
+app/pytorch_api/.bash_history
+app/pytorch_api/best-mrcnn-nebraska-model-rgb-jpeg-split-geo-nebraska-freeze0-withseed.pth
+app/pytorch_api/results_LT05_CU_012008_20050702_20190102_C01_V0_-632777_2027019.png
+app/pytorch_api/results_LT05_CU_012008_20050920_20190107_C01_V0_-655817_2050059.png
+app/pytorch_api/results_LT05_CU_013008_20050828_20190107_C01_V0_-485025_2041605.png
+app/pytorch_api/supervisord.log
+images/L5_september_29_smallclip.tiff.aux.xml
+images/aoi_restricted_LT05_CU_015008_20050830_20190107_C01_V0_-292545_2033925.jpg
+images/aoi_restricted_LT05_CU_015008_20050830_20190107_C01_V0_-300225_2018565.jpg
+images/aoi_restricted_LT05_CU_015009_20050722_20190102_C01_V0_-169665_1934999.jpg
+models/best-mrcnn-nebraska-model-rgb-jpeg-split-geo-nebraska-freeze0-withseed.pth
